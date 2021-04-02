@@ -22,3 +22,6 @@ build/
 *~
 lib/
 
+.vs/
+CMakeSettings.json
+compile_commands.json
