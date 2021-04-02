@@ -41,7 +41,7 @@ add_library(
 target_sources(
   ${PROJECT_NAME}
   PRIVATE
-  src/Converter.cc
+  src/Converter.cpp
 )
 
 target_include_directories(
