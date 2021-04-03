@@ -18,15 +18,10 @@
  * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
  */
 #pragma once
+// DBoW2
+#include "DBoW2/BowVector.h"
+#include "DBoW2/FeatureVector.h"
 
-#include <vector>
-
-#include "KeyFrame.h"
-#include "MapPoint.h"
-#include "ORBVocabulary.h"
-#include "ORBextractor.h"
-#include "Thirdparty/DBoW2/DBoW2/BowVector.h"
-#include "Thirdparty/DBoW2/DBoW2/FeatureVector.h"
 
 namespace ORB_SLAM2 {
 
@@ -35,6 +30,7 @@ namespace ORB_SLAM2 {
 
 class MapPoint;
 class KeyFrame;
+class ORBextractor;
 
 class Frame final {
 public:
@@ -179,10 +175,10 @@ public:
   int mnScaleLevels;
   float mfScaleFactor;
   float mfLogScaleFactor;
-  vector<float> mvScaleFactors;
-  vector<float> mvInvScaleFactors;
-  vector<float> mvLevelSigma2;
-  vector<float> mvInvLevelSigma2;
+  std::vector<float> mvScaleFactors;
+  std::vector<float> mvInvScaleFactors;
+  std::vector<float> mvLevelSigma2;
+  std::vector<float> mvInvLevelSigma2;
 
   // Undistorted Image Bounds (computed once).
   static float mnMinX;

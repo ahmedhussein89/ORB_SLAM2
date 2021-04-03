@@ -19,21 +19,15 @@
  */
 #pragma once
 
-#include "KeyFrame.h"
-#include "KeyFrameDatabase.h"
-#include "LoopClosing.h"
-#include "Map.h"
-#include "Tracking.h"
-
-#include <mutex>
-
 namespace ORB_SLAM2 {
 
-class Tracking;
-class LoopClosing;
 class Map;
+class KeyFrame;
+class Tracking;
+class MapPoint;
+class LoopClosing;
 
-class LocalMapping {
+class LocalMapping final {
 public:
   LocalMapping(Map *pMap, const float bMonocular);
 

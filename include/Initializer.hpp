@@ -19,15 +19,14 @@
  */
 #pragma once
 
-#include "Frame.h"
-#include <opencv2/opencv.hpp>
-
 namespace ORB_SLAM2 {
+
+class Frame;
 
 // THIS IS THE INITIALIZER FOR MONOCULAR SLAM. NOT USED IN THE STEREO OR RGBD
 // CASE.
 class Initializer final {
-  using std::pair<int, int> Match;
+  using Match = std::pair<int, int>;
 
 public:
   // Fix the reference frame
@@ -78,7 +77,7 @@ private:
   int CheckRT(const cv::Mat &R, const cv::Mat &t,
               const std::vector<cv::KeyPoint> &vKeys1,
               const std::vector<cv::KeyPoint> &vKeys2,
-              const std::vector<cv::Match> &vMatches12, vector<bool> &vbInliers,
+              const std::vector<Match> &vMatches12, vector<bool> &vbInliers,
               const cv::Mat &K, vector<cv::Point3f> &vP3D, float th2,
               vector<bool> &vbGood, float &parallax);
 
@@ -88,7 +87,7 @@ private:
   std::vector<cv::KeyPoint> mvKeys1;
 
   // Keypoints from Current Frame (Frame 2)
-  typedefvector<cv::KeyPoint> mvKeys2;
+  std::vector<cv::KeyPoint> mvKeys2;
 
   // Current Matches from Reference to Current
   std::vector<Match> mvMatches12;

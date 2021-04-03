@@ -15,9 +15,10 @@ foreach(testCase IN LISTS testCases)
   target_link_libraries(
     ${testCase}
     PRIVATE
+    ORB_SLAM2
     GTest::GTest
     GTest::Main
-    ORB_SLAM2
+    #coverage
   )
 
   set_target_properties(

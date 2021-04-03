@@ -18,8 +18,11 @@
  * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
  */
 #pragma once
-// Internal
-#include "ORBVocabulary.h"
+
+// REMOVEME(Hussein)
+inline void usleep(uint32_t miliseconds) {
+  std::this_thread::sleep_for(std::chrono::milliseconds(miliseconds));
+}
 
 namespace ORB_SLAM2 {
 

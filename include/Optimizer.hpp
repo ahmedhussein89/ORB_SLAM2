@@ -18,14 +18,19 @@
  * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
  */
 #pragma once
+// Internal
+#include "LoopClosing.hpp"
+// g2o
+#include "g2o/types/types_seven_dof_expmap.h"
 
-#include "Thirdparty/g2o/g2o/types/types_seven_dof_expmap.h"
+namespace ORB_SLAM2 {
 
-namespace ORB_SLAM2::Optimizer {
-
+class Map;
+class Frame;
 class KeyFrame;
 class MapPoint;
-class LoopClosing;
+
+namespace Optimizer {
 
 void BundleAdjustment(const std::vector<KeyFrame *> &vpKF,
                       const std::vector<MapPoint *> &vpMP, int nIterations = 5,
@@ -54,4 +59,6 @@ int OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2,
                  std::vector<MapPoint *> &vpMatches1, g2o::Sim3 &g2oS12,
                  const float th2, const bool bFixScale);
 
-} // namespace ORB_SLAM2::Optimizer
+} // namespace Optimizer
+} // namespace ORB_SLAM2
+

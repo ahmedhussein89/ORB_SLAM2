@@ -19,8 +19,7 @@
  */
 #pragma once
 // Internal
-#include "Frame.h"
-#include "ORBVocabulary.h"
+#include "Frame.hpp"
 
 
 namespace ORB_SLAM2 {

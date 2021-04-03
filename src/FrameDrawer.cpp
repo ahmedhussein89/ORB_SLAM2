@@ -19,11 +19,14 @@
  */
 // Internal
 #include "FrameDrawer.hpp"
-#include "Tracking.h"
+//
+#include "Map.hpp"
+#include "MapPoint.hpp"
+#include "Tracking.hpp"
 
 namespace ORB_SLAM2 {
 
-FrameDrawer::FrameDrawer(Map *pMap) : mpMap(pMap) {
+FrameDrawer::FrameDrawer(Map *pMap) noexcept : mpMap(pMap) {
   mState = Tracking::SYSTEM_NOT_READY;
   mIm = cv::Mat(480, 640, CV_8UC3, cv::Scalar(0, 0, 0));
 }
@@ -60,7 +63,7 @@ cv::Mat FrameDrawer::DrawFrame() {
   } // destroy scoped mutex -> release mutex
 
   if (im.channels() < 3) // this should be always true
-    cvtColor(im, im, CV_GRAY2BGR);
+    cvtColor(im, im, cv::COLOR_GRAY2BGR);
 
   // Draw
   if (state == Tracking::NOT_INITIALIZED) // INITIALIZING

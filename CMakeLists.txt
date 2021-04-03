@@ -14,61 +14,75 @@ find_package(Eigen3   REQUIRED)
 find_package(OpenCV   REQUIRED features2d highgui imgcodecs imgproc calib3d)
 find_package(Pangolin REQUIRED)
 find_package(range-v3 REQUIRED)
-#find_package(g2o   REQUIRED)
-#find_package(DBoW2 REQUIRED)
+find_package(g2o   REQUIRED)
+find_package(DBoW2 REQUIRED)
 
 add_library(
   ${PROJECT_NAME}
   STATIC
-  #src/System.cc
-  #src/Tracking.cc
-  #src/LocalMapping.cc
-  #src/LoopClosing.cc
-  #src/ORBextractor.cc
-  #src/ORBmatcher.cc
-  #src/FrameDrawer.cc
-  #src/Converter.cc
-  #src/MapPoint.cc
-  #src/KeyFrame.cc
-  #src/Map.cc
-  #src/MapDrawer.cc
-  #src/Optimizer.cc
-  #src/PnPsolver.cc
-  #src/Frame.cc
-  #src/KeyFrameDatabase.cc
-  #src/Sim3Solver.cc
-  #src/Initializer.cc
-  #src/Viewer.cc
 )
 
 target_sources(
   ${PROJECT_NAME}
   PRIVATE
+  src/Map.cpp
+  src/Frame.cpp
+  src/System.cpp
+  src/Viewer.cpp
+  src/Tracking.cpp
+  src/MapPoint.cpp
+  src/KeyFrame.cpp
   src/Converter.cpp
+  src/MapDrawer.cpp
+  src/Converter.cpp
+  src/Optimizer.cpp
+  src/PnPsolver.cpp
+  src/ORBmatcher.cpp
+  src/Sim3Solver.cpp
+  src/FrameDrawer.cpp
+  src/LoopClosing.cpp
+  src/Initializer.cpp
+  src/LocalMapping.cpp
+  src/ORBextractor.cpp
+  src/KeyFrameDatabase.cpp
+)
+
+target_include_directories(
+  ${PROJECT_NAME}
+  PUBLIC
+  ${PROJECT_SOURCE_DIR}/include
 )
 
 target_include_directories(
   ${PROJECT_NAME}
   SYSTEM PRIVATE
   ${PROJECT_SOURCE_DIR}
-  ${PROJECT_SOURCE_DIR}/include
   ${Pangolin_INCLUDE_DIRS}
+)
+
+target_include_directories(
+  ${PROJECT_NAME}
+  SYSTEM PUBLIC
+  ${OpenCV_INCLUDE_DIRS}
+)
+
+target_link_libraries(
+  ${PROJECT_NAME}
+  PUBLIC
+  Eigen3::Eigen
+  ${OpenCV_LIBS}
 )
 
 target_link_libraries(
   ${PROJECT_NAME}
   PRIVATE
-  ${OpenCV_LIBS}
   ${Pangolin_LIBRARIES}
   fmt::fmt
-  Eigen3::Eigen
   spdlog::spdlog
   options::options
   range-v3::range-v3
-  #${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
-  #${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
-  #g2o
-  #DBoW2
+  g2o
+  DBoW2
 )
 
 target_compile_options(

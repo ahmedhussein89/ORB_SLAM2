@@ -17,18 +17,16 @@
 * You should have received a copy of the GNU General Public License
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
-
-#include "KeyFrameDatabase.h"
-
-#include "KeyFrame.h"
-#include "Thirdparty/DBoW2/DBoW2/BowVector.h"
-
-#include<mutex>
+// Internal
+#include "KeyFrameDatabase.hpp"
+//
+#include "Frame.hpp"
+#include "KeyFrame.hpp"
+#include "DBoW2/DBoW2/BowVector.h"
 
 using namespace std;
 
-namespace ORB_SLAM2
-{
+namespace ORB_SLAM2 {
 
 KeyFrameDatabase::KeyFrameDatabase (const ORBVocabulary &voc):
     mpVoc(&voc)
@@ -204,7 +202,7 @@ vector<KeyFrame*> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F)
     {
         unique_lock<mutex> lock(mMutex);
 
-        for(DBoW2::BowVector::const_iterator vit=F->mBowVec.begin(), vend=F->mBowVec.end(); vit != vend; vit++)
+        for(auto vit = F->mBowVec.begin(), vend=F->mBowVec.end(); vit != vend; vit++)
         {
             list<KeyFrame*> &lKFs =   mvInvertedFile[vit->first];
 

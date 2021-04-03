@@ -18,9 +18,8 @@
  * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
  */
 #pragma once
-// Internal
-#include "ORBVocabulary.h"
-// #include "Thirdparty/g2o/g2o/types/types_seven_dof_expmap.h"
+// g2o
+#include "g2o/types/types_seven_dof_expmap.h"
 
 
 namespace ORB_SLAM2 {
@@ -34,14 +33,11 @@ class KeyFrameDatabase;
 
 class LoopClosing final {
 public:
-  typedef std::pair<std::set<KeyFrame *>, int> ConsistentGroup;
-  typedef map<KeyFrame *, g2o::Sim3, std::less<KeyFrame *>,
-              Eigen::aligned_allocator<std::pair<const KeyFrame *, g2o::Sim3>>>
-      KeyFrameAndPose;
+  using ConsistentGroup = std::pair<std::set<KeyFrame*>, int>;
+  using KeyFrameAndPose = std::map<KeyFrame* const, g2o::Sim3, std::less<KeyFrame*>, Eigen::aligned_allocator<std::pair<KeyFrame* const, g2o::Sim3>>>;
 
 public:
-  LoopClosing(Map *pMap, KeyFrameDatabase *pDB, ORBVocabulary *pVoc,
-              const bool bFixScale);
+  LoopClosing(Map *pMap, KeyFrameDatabase *pDB, ORBVocabulary *pVoc, const bool bFixScale);
 
   void SetTracker(Tracking *pTracker);
 
@@ -132,7 +128,7 @@ protected:
   // Fix scale in the stereo/RGB-D case
   bool mbFixScale;
 
-  bool mnFullBAIdx;
+  int mnFullBAIdx;
 };
 
 } // namespace ORB_SLAM2

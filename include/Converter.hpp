@@ -19,18 +19,21 @@
  */
 #pragma once
 // g2o
-//#include "Thirdparty/g2o/g2o/types/types_six_dof_expmap.h"
-//#include "Thirdparty/g2o/g2o/types/types_seven_dof_expmap.h"
+#include "g2o/types/types_six_dof_expmap.h"
+#include "g2o/types/types_seven_dof_expmap.h"
 
 namespace ORB_SLAM2::Converter {
 
   std::vector<cv::Mat> toDescriptorVector(const cv::Mat &Descriptors);
 
-  //g2o::SE3Quat toSE3Quat(const cv::Mat &cvT);
-  //g2o::SE3Quat toSE3Quat(const g2o::Sim3 &gSim3);
+  g2o::SE3Quat toSE3Quat(const cv::Mat &cvT);
 
-  //cv::Mat toCvMat(const g2o::SE3Quat &SE3);
-  //cv::Mat toCvMat(const g2o::Sim3 &Sim3);
+  g2o::SE3Quat toSE3Quat(const g2o::Sim3 &gSim3);
+
+  cv::Mat toCvMat(const g2o::SE3Quat &SE3);
+
+  cv::Mat toCvMat(const g2o::Sim3 &Sim3);
+
   cv::Mat toCvMat(const Eigen::Matrix<double,4,4> &m);
 
   cv::Mat toCvMat(const Eigen::Matrix3d &m);

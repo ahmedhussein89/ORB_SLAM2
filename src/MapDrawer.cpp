@@ -19,9 +19,9 @@
  */
 #include "MapDrawer.hpp"
 // Internal
-#include "Map.h"
-#include "KeyFrame.h"
-#include "MapPoint.h"
+#include "Map.hpp"
+#include "KeyFrame.hpp"
+#include "MapPoint.hpp"
 
 namespace ORB_SLAM2 {
 

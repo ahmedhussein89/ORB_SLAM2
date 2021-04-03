@@ -9,13 +9,18 @@
 #include <thread>
 #include <iomanip>
 #include <cstdlib>
+#include <utility>
 #include <iostream>
 #include <algorithm>
 // Eigen
 #include <Eigen/Eigen>
 #include <Eigen/Dense>
+#include <Eigen/StdVector>
 // OpenCV
 #include <opencv2/opencv.hpp>
+#include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/features2d.hpp>
+// Internal
+#include "ORBVocabulary.hpp"
 

@@ -18,22 +18,15 @@
  * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
  */
 #pragma once
-
-#include "Frame.h"
-#include "KeyFrameDatabase.h"
-#include "MapPoint.h"
-#include "ORBVocabulary.h"
-#include "ORBextractor.h"
-#include "Thirdparty/DBoW2/DBoW2/BowVector.h"
-#include "Thirdparty/DBoW2/DBoW2/FeatureVector.h"
-
-#include <mutex>
+// DBoW2
+#include "DBoW2/BowVector.h"
+#include "DBoW2/FeatureVector.h"
 
 namespace ORB_SLAM2 {
 
 class Map;
-class MapPoint;
 class Frame;
+class MapPoint;
 class KeyFrameDatabase;
 
 class KeyFrame final {
@@ -223,6 +216,7 @@ protected:
   std::mutex mMutexPose;
   std::mutex mMutexConnections;
   std::mutex mMutexFeatures;
+
 };
 
 } // namespace ORB_SLAM2

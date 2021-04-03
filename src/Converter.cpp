@@ -37,7 +37,6 @@ auto toDescriptorVector(const cv::Mat &Descriptors) -> std::vector<cv::Mat> {
   return vDesc;
 }
 
-/*
 g2o::SE3Quat Converter::toSE3Quat(const cv::Mat &cvT) {
     Eigen::Matrix<double,3,3> R;
     R << cvT.at<float>(0,0), cvT.at<float>(0,1), cvT.at<float>(0,2),
@@ -60,7 +59,6 @@ cv::Mat Converter::toCvMat(const g2o::Sim3 &Sim3) {
     double s = Sim3.scale();
     return toCvSE3(s*eigR,eigt);
 }
-*/
 
 auto toCvMat(const Eigen::Matrix<double, 4, 4> &m) -> cv::Mat {
   cv::Mat cvMat(4, 4, CV_32F);

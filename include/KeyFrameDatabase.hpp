@@ -19,20 +19,10 @@
  */
 #pragma once
 
-#include <list>
-#include <set>
-#include <vector>
-
-#include "Frame.h"
-#include "KeyFrame.h"
-#include "ORBVocabulary.h"
-
-#include <mutex>
-
 namespace ORB_SLAM2 {
 
-class KeyFrame;
 class Frame;
+class KeyFrame;
 
 class KeyFrameDatabase final {
 public:
