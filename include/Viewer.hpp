@@ -17,30 +17,18 @@
 * You should have received a copy of the GNU General Public License
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
+#pragma once
 
+namespace ORB_SLAM2 {
 
-#ifndef VIEWER_H
-#define VIEWER_H
-
-#include "FrameDrawer.h"
-#include "MapDrawer.h"
-#include "Tracking.h"
-#include "System.h"
-
-#include <mutex>
-
-namespace ORB_SLAM2
-{
-
-class Tracking;
-class FrameDrawer;
-class MapDrawer;
 class System;
+class Tracking;
+class MapDrawer;
+class FrameDrawer;
 
-class Viewer
-{
+class Viewer final {
 public:
-    Viewer(System* pSystem, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Tracking *pTracking, const string &strSettingPath);
+    Viewer(System* pSystem, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Tracking *pTracking, const std::string &strSettingPath);
 
     // Main thread function. Draw points, keyframes, the current camera pose and the last processed
     // frame. Drawing is refreshed according to the camera fps. We use Pangolin.
@@ -57,7 +45,6 @@ public:
     void Release();
 
 private:
-
     bool Stop();
 
     System* mpSystem;
@@ -84,8 +71,4 @@ private:
 };
 
 }
-
-
-#endif // VIEWER_H
-	
 
