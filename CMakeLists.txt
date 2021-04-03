@@ -2,7 +2,10 @@
 cmake_minimum_required(VERSION 3.16)
 project(ORB_SLAM2 CXX)
 
-option(ENABLE_UNIT_TESTING "Build unit-testing." OFF)
+option(ENABLE_UNIT_TESTING "Build unit-testing."      OFF)
+option(ENABLE_RGBD         "Build RGB-D example."     OFF)
+option(ENABLE_STEREO       "Build Stereo example."    OFF)
+option(ENABLE_MONOCULAR    "Build Monocular example." OFF)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(options)
@@ -69,6 +72,7 @@ target_include_directories(
 target_link_libraries(
   ${PROJECT_NAME}
   PUBLIC
+  DBoW2 # REMOVEME(Hussein)
   Eigen3::Eigen
   ${OpenCV_LIBS}
 )
@@ -82,7 +86,6 @@ target_link_libraries(
   options::options
   range-v3::range-v3
   g2o
-  DBoW2
 )
 
 target_compile_options(
@@ -116,35 +119,7 @@ if(ENABLE_UNIT_TESTING)
   add_subdirectory(tests/unit-tests/)
 endif()
 
-if(ENABLE_EXAMPLES)
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/RGB-D)
-
-  add_executable(rgbd_tum
-  Examples/RGB-D/rgbd_tum.cc)
-  target_link_libraries(rgbd_tum ${PROJECT_NAME})
-
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Stereo)
-
-  add_executable(stereo_kitti
-  Examples/Stereo/stereo_kitti.cc)
-  target_link_libraries(stereo_kitti ${PROJECT_NAME})
-
-  add_executable(stereo_euroc
-  Examples/Stereo/stereo_euroc.cc)
-  target_link_libraries(stereo_euroc ${PROJECT_NAME})
-
-
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Monocular)
-
-  add_executable(mono_tum
-  Examples/Monocular/mono_tum.cc)
-  target_link_libraries(mono_tum ${PROJECT_NAME})
-
-  add_executable(mono_kitti
-  Examples/Monocular/mono_kitti.cc)
-  target_link_libraries(mono_kitti ${PROJECT_NAME})
-
-  add_executable(mono_euroc
-  Examples/Monocular/mono_euroc.cc)
-  target_link_libraries(mono_euroc ${PROJECT_NAME})
+if(ENABLE_RGBD OR ENABLE_STEREO OR ENABLE_MONOCULAR)
+  add_subdirectory(examples)
 endif()
+
