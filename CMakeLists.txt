@@ -2,21 +2,24 @@
 cmake_minimum_required(VERSION 3.16)
 project(ORB_SLAM2 CXX)
 
-option(ENABLE_UNIT_TESTING "" OFF)
-#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall  -O3 -march=native ")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall   -O3 -march=native")
+option(ENABLE_UNIT_TESTING "Build unit-testing." OFF)
 
-list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+include(options)
+#include(coverage)
 
-find_package(OpenCV REQUIRED features2d highgui imgcodecs imgproc calib3d)
-find_package(Eigen3 3.1.0 REQUIRED)
+find_package(fmt      REQUIRED)
+find_package(spdlog   REQUIRED)
+find_package(Eigen3   REQUIRED)
+find_package(OpenCV   REQUIRED features2d highgui imgcodecs imgproc calib3d)
 find_package(Pangolin REQUIRED)
+find_package(range-v3 REQUIRED)
 #find_package(g2o   REQUIRED)
 #find_package(DBoW2 REQUIRED)
 
 add_library(
   ${PROJECT_NAME}
-  SHARED
+  STATIC
   #src/System.cc
   #src/Tracking.cc
   #src/LocalMapping.cc
@@ -49,7 +52,6 @@ target_include_directories(
   SYSTEM PRIVATE
   ${PROJECT_SOURCE_DIR}
   ${PROJECT_SOURCE_DIR}/include
-  ${EIGEN3_INCLUDE_DIR}
   ${Pangolin_INCLUDE_DIRS}
 )
 
@@ -57,12 +59,22 @@ target_link_libraries(
   ${PROJECT_NAME}
   PRIVATE
   ${OpenCV_LIBS}
-  ${EIGEN3_LIBS}
   ${Pangolin_LIBRARIES}
+  fmt::fmt
+  Eigen3::Eigen
+  spdlog::spdlog
+  options::options
+  range-v3::range-v3
   #${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
   #${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
   #g2o
   #DBoW2
+)
+
+target_compile_options(
+  ${PROJECT_NAME}
+  PRIVATE
+  $<$<PLATFORM_ID:Linux>:-march=native>
 )
 
 target_compile_definitions(
@@ -71,7 +83,22 @@ target_compile_definitions(
   COMPILEDWITHC11
 )
 
+target_precompile_headers(
+  ${PROJECT_NAME}
+  PRIVATE
+  include/precompile.hpp
+)
+
+set_target_properties(
+  ${PROJECT_NAME}
+  PROPERTIES
+  CXX_STANDARD          17
+  CXX_EXTENSIONS        OFF
+  CXX_STANDARD_REQUIRED ON
+)
+
 if(ENABLE_UNIT_TESTING)
+  enable_testing()
   add_subdirectory(tests/unit-tests/)
 endif()
 
@@ -107,4 +134,3 @@ if(ENABLE_EXAMPLES)
   Examples/Monocular/mono_euroc.cc)
   target_link_libraries(mono_euroc ${PROJECT_NAME})
 endif()
-
