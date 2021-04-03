@@ -1,0 +1,19 @@
+#pragma once
+// STL
+#include <set>
+#include <list>
+#include <cmath>
+#include <mutex>
+#include <string>
+#include <vector>
+#include <thread>
+#include <iomanip>
+#include <cstdlib>
+#include <iostream>
+#include <algorithm>
+// Eigen
+#include <Eigen/Eigen>
+#include <Eigen/Dense>
+// OpenCV
+#include <opencv2/opencv.hpp>
+
