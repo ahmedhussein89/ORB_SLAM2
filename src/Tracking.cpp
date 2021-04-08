@@ -45,7 +45,7 @@ namespace ORB_SLAM2 {
 
 Tracking::Tracking(System *pSys, ORBVocabulary *pVoc, FrameDrawer *pFrameDrawer,
                    MapDrawer *pMapDrawer, Map *pMap, KeyFrameDatabase *pKFDB,
-                   const string &strSettingPath, const int sensor)
+                   const string &strSettingPath, eSensor sensor)
     : mState(NO_IMAGES_YET), mSensor(sensor), mbOnlyTracking(false),
       mbVO(false), mpORBVocabulary(pVoc), mpKeyFrameDB(pKFDB),
       mpInitializer(static_cast<Initializer *>(NULL)), mpSystem(pSys),
@@ -120,11 +120,11 @@ Tracking::Tracking(System *pSys, ORBVocabulary *pVoc, FrameDrawer *pFrameDrawer,
   mpORBextractorLeft = new ORBextractor(nFeatures, fScaleFactor, nLevels,
                                         fIniThFAST, fMinThFAST);
 
-  if (sensor == System::STEREO)
+  if (sensor == eSensor::STEREO)
     mpORBextractorRight = new ORBextractor(nFeatures, fScaleFactor, nLevels,
                                            fIniThFAST, fMinThFAST);
 
-  if (sensor == System::MONOCULAR)
+  if (sensor == eSensor::MONOCULAR)
     mpIniORBextractor = new ORBextractor(2 * nFeatures, fScaleFactor, nLevels,
                                          fIniThFAST, fMinThFAST);
 
@@ -135,12 +135,12 @@ Tracking::Tracking(System *pSys, ORBVocabulary *pVoc, FrameDrawer *pFrameDrawer,
   cout << "- Initial Fast Threshold: " << fIniThFAST << endl;
   cout << "- Minimum Fast Threshold: " << fMinThFAST << endl;
 
-  if (sensor == System::STEREO || sensor == System::RGBD) {
+  if (sensor == eSensor::STEREO || sensor == eSensor::RGBD) {
     mThDepth = mbf * (float)fSettings["ThDepth"] / fx;
     cout << endl << "Depth Threshold (Close/Far Points): " << mThDepth << endl;
   }
 
-  if (sensor == System::RGBD) {
+  if (sensor == eSensor::RGBD) {
     mDepthMapFactor = fSettings["DepthMapFactor"];
     if (fabs(mDepthMapFactor) < 1e-5)
       mDepthMapFactor = 1;
@@ -259,7 +259,7 @@ void Tracking::Track() {
   unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
 
   if (mState == NOT_INITIALIZED) {
-    if (mSensor == System::STEREO || mSensor == System::RGBD)
+    if (mSensor == eSensor::STEREO || mSensor == eSensor::RGBD)
       StereoInitialization();
     else
       MonocularInitialization();
@@ -727,7 +727,7 @@ void Tracking::UpdateLastFrame() {
 
   mLastFrame.SetPose(Tlr * pRef->GetPose());
 
-  if (mnLastKeyFrameId == mLastFrame.mnId || mSensor == System::MONOCULAR ||
+  if (mnLastKeyFrameId == mLastFrame.mnId || mSensor == eSensor::MONOCULAR ||
       !mbOnlyTracking)
     return;
 
@@ -793,19 +793,19 @@ bool Tracking::TrackWithMotionModel() {
 
   // Project points seen in previous frame
   int th;
-  if (mSensor != System::STEREO)
+  if (mSensor != eSensor::STEREO)
     th = 15;
   else
     th = 7;
   int nmatches = matcher.SearchByProjection(mCurrentFrame, mLastFrame, th,
-                                            mSensor == System::MONOCULAR);
+                                            mSensor == eSensor::MONOCULAR);
 
   // If few matches, uses a wider window search
   if (nmatches < 20) {
     fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(),
          static_cast<MapPoint *>(NULL));
     nmatches = matcher.SearchByProjection(mCurrentFrame, mLastFrame, 2 * th,
-                                          mSensor == System::MONOCULAR);
+                                          mSensor == eSensor::MONOCULAR);
   }
 
   if (nmatches < 20)
@@ -862,7 +862,7 @@ bool Tracking::TrackLocalMap() {
             mnMatchesInliers++;
         } else
           mnMatchesInliers++;
-      } else if (mSensor == System::STEREO)
+      } else if (mSensor == eSensor::STEREO)
         mCurrentFrame.mvpMapPoints[i] = static_cast<MapPoint *>(NULL);
     }
   }
@@ -907,7 +907,7 @@ bool Tracking::NeedNewKeyFrame() {
   // potentially created.
   int nNonTrackedClose = 0;
   int nTrackedClose = 0;
-  if (mSensor != System::MONOCULAR) {
+  if (mSensor != eSensor::MONOCULAR) {
     for (int i = 0; i < mCurrentFrame.N; i++) {
       if (mCurrentFrame.mvDepth[i] > 0 && mCurrentFrame.mvDepth[i] < mThDepth) {
         if (mCurrentFrame.mvpMapPoints[i] && !mCurrentFrame.mvbOutlier[i])
@@ -925,7 +925,7 @@ bool Tracking::NeedNewKeyFrame() {
   if (nKFs < 2)
     thRefRatio = 0.4f;
 
-  if (mSensor == System::MONOCULAR)
+  if (mSensor == eSensor::MONOCULAR)
     thRefRatio = 0.9f;
 
   // Condition 1a: More than "MaxFrames" have passed from last keyframe
@@ -936,7 +936,7 @@ bool Tracking::NeedNewKeyFrame() {
                     bLocalMappingIdle);
   // Condition 1c: tracking is weak
   const bool c1c =
-      mSensor != System::MONOCULAR &&
+      mSensor != eSensor::MONOCULAR &&
       (mnMatchesInliers < nRefMatches * 0.25 || bNeedToInsertClose);
   // Condition 2: Few tracked points compared to reference keyframe. Lots of
   // visual odometry compared to map matches.
@@ -951,7 +951,7 @@ bool Tracking::NeedNewKeyFrame() {
       return true;
     } else {
       mpLocalMapper->InterruptBA();
-      if (mSensor != System::MONOCULAR) {
+      if (mSensor != eSensor::MONOCULAR) {
         if (mpLocalMapper->KeyframesInQueue() < 3)
           return true;
         else
@@ -972,7 +972,7 @@ void Tracking::CreateNewKeyFrame() {
   mpReferenceKF = pKF;
   mCurrentFrame.mpReferenceKF = pKF;
 
-  if (mSensor != System::MONOCULAR) {
+  if (mSensor != eSensor::MONOCULAR) {
     mCurrentFrame.UpdatePoseMatrices();
 
     // We sort points by the measured depth by the stereo/RGBD sensor.
@@ -1071,7 +1071,7 @@ void Tracking::SearchLocalPoints() {
   if (nToMatch > 0) {
     ORBmatcher matcher(0.8);
     int th = 1;
-    if (mSensor == System::RGBD)
+    if (mSensor == eSensor::RGBD)
       th = 3;
     // If the camera has been relocalised recently, perform a coarser search
     if (mCurrentFrame.mnId < mnLastRelocFrameId + 2)

@@ -38,7 +38,7 @@ class Tracking final {
 public:
   Tracking(System *pSys, ORBVocabulary *pVoc, FrameDrawer *pFrameDrawer,
            MapDrawer *pMapDrawer, Map *pMap, KeyFrameDatabase *pKFDB,
-           const std::string &strSettingPath, const int sensor);
+           const std::string &strSettingPath, eSensor sensor);
 
   // Preprocess the input and call Track(). Extract features and performs stereo
   // matching.
@@ -76,7 +76,7 @@ public:
   eTrackingState mLastProcessedState;
 
   // Input sensor
-  int mSensor;
+  eSensor mSensor;
 
   // Current Frame
   Frame mCurrentFrame;

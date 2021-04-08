@@ -103,7 +103,7 @@ target_compile_definitions(
 
 target_precompile_headers(
   ${PROJECT_NAME}
-  PRIVATE
+  PUBLIC
   include/precompile.hpp
 )
 

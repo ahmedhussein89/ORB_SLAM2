@@ -50,11 +50,11 @@ System::System(const string &strVocFile, const string &strSettingsFile,
 
   cout << "Input sensor was set to: ";
 
-  if (mSensor == MONOCULAR)
+  if (mSensor == eSensor::MONOCULAR)
     cout << "Monocular" << endl;
-  else if (mSensor == STEREO)
+  else if (mSensor == eSensor::STEREO)
     cout << "Stereo" << endl;
-  else if (mSensor == RGBD)
+  else if (mSensor == eSensor::RGBD)
     cout << "RGB-D" << endl;
 
   // Check settings file
@@ -93,12 +93,12 @@ System::System(const string &strVocFile, const string &strSettingsFile,
                            mpMap, mpKeyFrameDatabase, strSettingsFile, mSensor);
 
   // Initialize the Local Mapping thread and launch
-  mpLocalMapper = new LocalMapping(mpMap, mSensor == MONOCULAR);
+  mpLocalMapper = new LocalMapping(mpMap, mSensor == eSensor::MONOCULAR);
   mptLocalMapping = new thread(&ORB_SLAM2::LocalMapping::Run, mpLocalMapper);
 
   // Initialize the Loop Closing thread and launch
   mpLoopCloser = new LoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary,
-                                 mSensor != MONOCULAR);
+                                 mSensor != eSensor::MONOCULAR);
   mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
 
   // Initialize the Viewer thread and launch
@@ -122,7 +122,7 @@ System::System(const string &strVocFile, const string &strSettingsFile,
 
 cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight,
                             const double &timestamp) {
-  if (mSensor != STEREO) {
+  if (mSensor != eSensor::STEREO) {
     cerr << "ERROR: you called TrackStereo but input sensor was not set to "
             "STEREO."
          << endl;
@@ -170,7 +170,7 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight,
 
 cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap,
                           const double &timestamp) {
-  if (mSensor != RGBD) {
+  if (mSensor != eSensor::RGBD) {
     cerr << "ERROR: you called TrackRGBD but input sensor was not set to RGBD."
          << endl;
     exit(-1);
@@ -216,7 +216,7 @@ cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap,
 }
 
 cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp) {
-  if (mSensor != MONOCULAR) {
+  if (mSensor != eSensor::MONOCULAR) {
     cerr << "ERROR: you called TrackMonocular but input sensor was not set to "
             "Monocular."
          << endl;
@@ -309,7 +309,7 @@ void System::Shutdown() {
 
 void System::SaveTrajectoryTUM(const string &filename) {
   cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
-  if (mSensor == MONOCULAR) {
+  if (mSensor == eSensor::MONOCULAR) {
     cerr << "ERROR: SaveTrajectoryTUM cannot be used for monocular." << endl;
     return;
   }
@@ -405,7 +405,7 @@ void System::SaveKeyFrameTrajectoryTUM(const string &filename) {
 
 void System::SaveTrajectoryKITTI(const string &filename) {
   cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
-  if (mSensor == MONOCULAR) {
+  if (mSensor == eSensor::MONOCULAR) {
     cerr << "ERROR: SaveTrajectoryKITTI cannot be used for monocular." << endl;
     return;
   }

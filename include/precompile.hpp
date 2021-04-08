@@ -22,5 +22,6 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/features2d.hpp>
 // Internal
+#include "utilities.hpp"
 #include "ORBVocabulary.hpp"
 
