@@ -2,10 +2,11 @@
 cmake_minimum_required(VERSION 3.16)
 project(ORB_SLAM2 CXX)
 
-option(ENABLE_UNIT_TESTING "Build unit-testing."      OFF)
-option(ENABLE_RGBD         "Build RGB-D example."     OFF)
-option(ENABLE_STEREO       "Build Stereo example."    OFF)
-option(ENABLE_MONOCULAR    "Build Monocular example." OFF)
+option(ENABLE_UNIT_TESTING "Build unit-testing."        OFF)
+option(ENABLE_ACCEPTANCES  "Build acceptances-testing." OFF)
+option(ENABLE_RGBD         "Build RGB-D example."       OFF)
+option(ENABLE_STEREO       "Build Stereo example."      OFF)
+option(ENABLE_MONOCULAR    "Build Monocular example."   OFF)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(options)
@@ -17,8 +18,8 @@ find_package(Eigen3   REQUIRED)
 find_package(OpenCV   REQUIRED features2d highgui imgcodecs imgproc calib3d)
 find_package(Pangolin REQUIRED)
 find_package(range-v3 REQUIRED)
-find_package(g2o   REQUIRED)
-find_package(DBoW2 REQUIRED)
+find_package(g2o      REQUIRED)
+find_package(DBoW2    REQUIRED)
 
 add_library(
   ${PROJECT_NAME}
@@ -114,9 +115,9 @@ set_target_properties(
   CXX_STANDARD_REQUIRED ON
 )
 
-if(ENABLE_UNIT_TESTING)
+if(ENABLE_UNIT_TESTING OR ENABLE_ACCEPTANCES)
   enable_testing()
-  add_subdirectory(tests/unit-tests/)
+  add_subdirectory(tests)
 endif()
 
 if(ENABLE_RGBD OR ENABLE_STEREO OR ENABLE_MONOCULAR)
