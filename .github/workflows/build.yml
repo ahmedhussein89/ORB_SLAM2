@@ -1,0 +1,198 @@
+name: Build ORB-SLAM2
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/orb-slam2
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: .devcontainer/Dockerfile
+        platforms: linux/amd64,linux/arm64
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          BUILDKIT_INLINE_CACHE=1
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name != 'pull_request'
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build test image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: .devcontainer/Dockerfile
+        load: true
+        tags: orb-slam2:test
+        cache-from: type=gha
+
+    - name: Test ORB-SLAM2 build
+      run: |
+        docker run --rm orb-slam2:test bash -c "
+          echo 'Testing ORB-SLAM2 environment...' &&
+          which cmake &&
+          which ninja &&
+          python3 --version &&
+          pkg-config --modversion opencv4 2>/dev/null || pkg-config --modversion opencv &&
+          echo 'Environment test completed successfully!'
+        "
+
+    - name: Test development environment
+      run: |
+        docker run --rm orb-slam2:test bash -c "
+          echo 'Testing development tools...' &&
+          g++ --version &&
+          cmake --version &&
+          ninja --version &&
+          echo 'Development tools test completed!'
+        "
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name != 'pull_request'
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Build image for scanning
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: .devcontainer/Dockerfile
+        load: true
+        tags: orb-slam2:scan
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'orb-slam2:scan'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  build-orb-slam2:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name != 'pull_request'
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build development image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: .devcontainer/Dockerfile
+        load: true
+        tags: orb-slam2:dev
+        cache-from: type=gha
+
+    - name: Clone and build ORB-SLAM2
+      run: |
+        docker run --rm -v ${{ github.workspace }}:/workspace orb-slam2:dev bash -c "
+          cd /workspace &&
+          if [ ! -d 'ORB_SLAM2' ]; then
+            git clone https://github.com/raulmur/ORB_SLAM2.git
+          fi &&
+          cd ORB_SLAM2 &&
+          echo 'Building ORB-SLAM2...' &&
+          chmod +x build.sh &&
+          ./build.sh
+        "
+
+    - name: Test ORB-SLAM2 executables
+      run: |
+        docker run --rm -v ${{ github.workspace }}:/workspace orb-slam2:dev bash -c "
+          cd /workspace/ORB_SLAM2 &&
+          echo 'Checking built executables...' &&
+          ls -la Examples/Monocular/ &&
+          ls -la Examples/Stereo/ &&
+          ls -la Examples/RGB-D/ &&
+          echo 'ORB-SLAM2 build verification completed!'
+        "
+
+    - name: Archive ORB-SLAM2 artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: orb-slam2-build
+        path: |
+          ORB_SLAM2/Examples/Monocular/mono_*
+          ORB_SLAM2/Examples/Stereo/stereo_*
+          ORB_SLAM2/Examples/RGB-D/rgbd_*
+          ORB_SLAM2/lib/
+        retention-days: 30
