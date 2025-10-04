@@ -44,3 +44,8 @@ WORKDIR /workspace/ORB_SLAM2
 # Build the project
 RUN bash /workspace/ORB_SLAM2/build.sh
 
+RUN useradd -ms /bin/bash orb_slam2
+USER orb_slam2
+WORKDIR /home/orb_slam2
+ENV LD_LIBRARY_PATH=/opt/orb_slam2/lib/:
+ENV PATH=/opt/orb_slam2/bin/:${PATH}
