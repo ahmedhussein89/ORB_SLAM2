@@ -129,6 +129,11 @@ install(TARGETS
 )
 
 install(
+   FILES tools/main.py
+   DESTINATION ${INSTALL_DIR}/bin
+)
+
+install(
    FILES
    ${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
    ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so

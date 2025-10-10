@@ -13,7 +13,8 @@ RUN apt-get update && apt-get install -y \
     cmake \
     git \
     libopencv-dev \
-    python3-dev \
+    python3-psutil \
+    python3-matplotlib \
     libeigen3-dev \
     libglew-dev \
     libboost-dev \
@@ -42,10 +43,14 @@ COPY . /workspace/ORB_SLAM2
 WORKDIR /workspace/ORB_SLAM2
 
 # Build the project
-RUN bash /workspace/ORB_SLAM2/build.sh
+RUN bash /workspace/ORB_SLAM2/build.sh && \
+  rm -rf /workspace/ORB_SLAM2/
 
 RUN useradd -ms /bin/bash orb_slam2
 USER orb_slam2
 WORKDIR /home/orb_slam2
 ENV LD_LIBRARY_PATH=/opt/orb_slam2/lib/:
 ENV PATH=/opt/orb_slam2/bin/:${PATH}
+
+ENTRYPOINT ["/usr/bin/python3", "/opt/orb_slam2/bin/main.py"]
+

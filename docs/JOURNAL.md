@@ -27,7 +27,7 @@ To build the docker image you can run the following command
 To run the docker
 
 ```bash
-xhost +
+xhost + # Important or the script will exec will exit
 docker run -it --rm \
   -e DISPLAY=$DISPLAY \
   -v .:/tmp/ORB_SLAM2:rw \
@@ -35,8 +35,12 @@ docker run -it --rm \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
   -v $DATASET:/tmp/Dataset \
   orb_slam2 \
-  /opt/orb_slam2/bin/mono_euroc /opt/orb_slam2/Vocabulary/ORBvoc.txt /opt/orb_slam2/examples/Monocular/EuRoC.yaml /tmp/Dataset/euroc/machine_hall/mav0/cam0/data /opt/orb_slam2/examples/Monocular/EuRoC_TimeStamps/MH01.txt
+  --example mono_euroc \
+  --dataset /tmp/Dataset/euroc/machine_hall/mav0/cam0/data \
+  --settings MH01
 ```
+
+## Download dataset
 
 I created a python script to download EuRoC and Kitti dataset. You can find it in the `tools/slam_downloader.py`
 I can be used as the following
@@ -44,3 +48,11 @@ I can be used as the following
 ```bash
 python tools/slam_downloader.py -d all -o .
 ```
+
+## Acceptance test
+
+I want to create a script to trace CPU, Memory, stdout and stderr while running the example.
+
+## Evaluation script
+
+
