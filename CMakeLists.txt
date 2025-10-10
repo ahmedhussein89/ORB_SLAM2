@@ -111,3 +111,71 @@ add_executable(mono_euroc
 Examples/Monocular/mono_euroc.cc)
 target_link_libraries(mono_euroc ${PROJECT_NAME})
 
+# ===============================================
+# Installation configuration
+include(GNUInstallDirs)
+set(INSTALL_DIR "/opt/orb_slam2")
+
+install(TARGETS
+   mono_tum
+   mono_kitti
+   mono_euroc
+   rgbd_tum
+   stereo_kitti
+   stereo_euroc
+   ${PROJECT_NAME}
+   RUNTIME DESTINATION ${INSTALL_DIR}/bin
+   LIBRARY DESTINATION ${INSTALL_DIR}/lib
+)
+
+install(
+   FILES tools/main.py
+   DESTINATION ${INSTALL_DIR}/bin
+)
+
+install(
+   FILES
+   ${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
+   ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
+   DESTINATION ${INSTALL_DIR}/lib
+)
+
+install(FILES
+   Examples/Monocular/TUM1.yaml
+   Examples/Monocular/EuRoC.yaml
+   Examples/Monocular/TUM3.yaml
+   Examples/Monocular/KITTI00-02.yaml
+   Examples/Monocular/KITTI04-12.yaml
+   Examples/Monocular/TUM2.yaml
+   Examples/Monocular/KITTI03.yaml
+   DESTINATION ${INSTALL_DIR}/examples/Monocular
+)
+install(DIRECTORY
+   Examples/Monocular/EuRoC_TimeStamps
+   DESTINATION ${INSTALL_DIR}/examples/Monocular
+)
+install(FILES
+   Examples/Stereo/EuRoC.yaml
+   Examples/Stereo/KITTI00-02.yaml
+   Examples/Stereo/KITTI04-12.yaml
+   Examples/Stereo/KITTI03.yaml
+   DESTINATION ${INSTALL_DIR}/examples/Stereo
+)
+install(DIRECTORY
+   Examples/Stereo/EuRoC_TimeStamps
+   DESTINATION ${INSTALL_DIR}/examples/Stereo
+)
+install(FILES
+   Examples/RGB-D/TUM1.yaml
+   Examples/RGB-D/TUM3.yaml
+   Examples/RGB-D/TUM2.yaml
+   DESTINATION ${INSTALL_DIR}/examples/RGB-D
+)
+
+if(EXISTS "Vocabulary/ORBvoc.txt")
+   file(ARCHIVE_EXTRACT INPUT Vocabulary/ORBvoc.txt.tar.gz OUTPUT_DIRECTORY Vocabulary)
+endif()
+install(FILES
+   Vocabulary/ORBvoc.txt
+   DESTINATION ${INSTALL_DIR}/Vocabulary
+)
