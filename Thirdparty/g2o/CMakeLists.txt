@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.16)
 SET(CMAKE_LEGACY_CYGWIN_WIN32 0)
 
 PROJECT(g2o)
@@ -54,8 +54,20 @@ IF(OPENMP_FOUND AND G2O_USE_OPENMP)
 ENDIF(OPENMP_FOUND AND G2O_USE_OPENMP)
 
 # Compiler specific options for gcc
-SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native") 
-SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -march=native") 
+SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3")
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# -march=native MUST match across ORB_SLAM2, DBoW2 and g2o. It raises
+# EIGEN_MAX_ALIGN_BYTES (16 -> 64 on AVX-512), which changes the alignment and size of
+# Eigen-containing types such as g2o::SE3Quat. Mixing settings across these libraries
+# segfaults inside g2o's optimizer. Toggle it for all three or none.
+option(ORBSLAM2_NATIVE_ARCH "Build with -march=native" OFF)
+if(ORBSLAM2_NATIVE_ARCH)
+  add_compile_options(-march=native)
+endif()
+ 
 
 # activate warnings !!!
 SET(g2o_C_FLAGS "${g2o_C_FLAGS} -Wall -W")

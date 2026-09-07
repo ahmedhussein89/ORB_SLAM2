@@ -1,31 +1,11 @@
-echo "Configuring and building Thirdparty/DBoW2 ..."
+#!/bin/bash
+set -e
 
-cd Thirdparty/DBoW2
-mkdir build
-cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j
+echo "Uncompressing vocabulary ..."
+[ -f Vocabulary/ORBvoc.txt ] || tar -xf Vocabulary/ORBvoc.txt.tar.gz -C Vocabulary
 
-cd ../../g2o
-
-echo "Configuring and building Thirdparty/g2o ..."
-
-mkdir build
-cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j
-
-cd ../../../
-
-echo "Uncompress vocabulary ..."
-
-cd Vocabulary
-tar -xf ORBvoc.txt.tar.gz
-cd ..
-
-echo "Configuring and building ORB_SLAM2 ..."
-
-mkdir build
-cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j
+for d in Thirdparty/DBoW2 Thirdparty/g2o .; do
+    echo "Configuring and building $d ..."
+    cmake -S "$d" -B "$d/build" -DCMAKE_BUILD_TYPE=Release
+    cmake --build "$d/build" -j"$(nproc)"
+done
