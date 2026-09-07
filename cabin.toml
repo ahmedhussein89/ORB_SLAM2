@@ -1,0 +1,163 @@
+[package]
+name = "ORB_SLAM2"
+version = "1.0.0"
+cxx-standard = "c++17"
+c-standard = "c11"          # g2o/stuff/os_specific.c
+
+[dependencies]
+# System deps are package-wide: pkg-config cflags/ldflags reach every target,
+# so they are never listed in a target's `deps`.
+opencv4 = { version = ">=4.0", system = true }
+eigen3 = { version = ">=3.1.0", system = true }
+
+[dev-dependencies]
+gmock_main = { version = ">=1.10", system = true }
+
+# -Wall everywhere; CMake put it on ORB_SLAM2 only, but target-scoped flags
+# do not exist in cabin and Thirdparty is already warning-clean enough.
+[profile]
+cxxflags = ["-Wall"]
+
+# Replaces -DORBSLAM2_NATIVE_ARCH=ON. -march=native raises EIGEN_MAX_ALIGN_BYTES
+# (16 -> 64 on AVX-512), which changes the size/alignment of Eigen-containing
+# types such as g2o::SE3Quat. A profile applies to the whole build, so DBoW2,
+# g2o and ORB_SLAM2 cannot disagree -- which is what used to segfault in g2o.
+[profile.native]
+inherits = "release"
+cflags = ["-march=native"]
+cxxflags = ["-march=native"]
+
+[target.DBoW2]
+type = "library"
+include-dirs = ["Thirdparty/DBoW2"]
+sources = [
+  "Thirdparty/DBoW2/DBoW2/BowVector.cpp",
+  "Thirdparty/DBoW2/DBoW2/FORB.cpp",
+  "Thirdparty/DBoW2/DBoW2/FeatureVector.cpp",
+  "Thirdparty/DBoW2/DBoW2/ScoringObject.cpp",
+  "Thirdparty/DBoW2/DUtils/Random.cpp",
+  "Thirdparty/DBoW2/DUtils/Timestamp.cpp",
+]
+
+[target.g2o]
+type = "library"
+include-dirs = ["Thirdparty/g2o"]
+defines = ["UNIX"]
+sources = [
+  "Thirdparty/g2o/g2o/types/types_sba.cpp",
+  "Thirdparty/g2o/g2o/types/types_six_dof_expmap.cpp",
+  "Thirdparty/g2o/g2o/types/types_seven_dof_expmap.cpp",
+  "Thirdparty/g2o/g2o/core/hyper_graph_action.cpp",
+  "Thirdparty/g2o/g2o/core/hyper_graph.cpp",
+  "Thirdparty/g2o/g2o/core/marginal_covariance_cholesky.cpp",
+  "Thirdparty/g2o/g2o/core/matrix_structure.cpp",
+  "Thirdparty/g2o/g2o/core/batch_stats.cpp",
+  "Thirdparty/g2o/g2o/core/parameter.cpp",
+  "Thirdparty/g2o/g2o/core/cache.cpp",
+  "Thirdparty/g2o/g2o/core/optimizable_graph.cpp",
+  "Thirdparty/g2o/g2o/core/solver.cpp",
+  "Thirdparty/g2o/g2o/core/optimization_algorithm_factory.cpp",
+  "Thirdparty/g2o/g2o/core/estimate_propagator.cpp",
+  "Thirdparty/g2o/g2o/core/factory.cpp",
+  "Thirdparty/g2o/g2o/core/sparse_optimizer.cpp",
+  "Thirdparty/g2o/g2o/core/hyper_dijkstra.cpp",
+  "Thirdparty/g2o/g2o/core/parameter_container.cpp",
+  "Thirdparty/g2o/g2o/core/optimization_algorithm.cpp",
+  "Thirdparty/g2o/g2o/core/optimization_algorithm_with_hessian.cpp",
+  "Thirdparty/g2o/g2o/core/optimization_algorithm_levenberg.cpp",
+  "Thirdparty/g2o/g2o/core/jacobian_workspace.cpp",
+  "Thirdparty/g2o/g2o/core/robust_kernel.cpp",
+  "Thirdparty/g2o/g2o/core/robust_kernel_factory.cpp",
+  "Thirdparty/g2o/g2o/core/robust_kernel_impl.cpp",
+  "Thirdparty/g2o/g2o/stuff/timeutil.cpp",
+  "Thirdparty/g2o/g2o/stuff/os_specific.c",
+  "Thirdparty/g2o/g2o/stuff/string_tools.cpp",
+  "Thirdparty/g2o/g2o/stuff/property.cpp",
+]
+
+[target.ORB_SLAM2]
+type = "library"
+# "." is public: public headers include "Thirdparty/g2o/g2o/...".
+include-dirs = [".", "include"]
+deps = [
+  { name = "DBoW2", public = true },
+  { name = "g2o", public = true },
+]
+sources = [
+  "src/System.cc",
+  "src/Tracking.cc",
+  "src/LocalMapping.cc",
+  "src/LoopClosing.cc",
+  "src/ORBextractor.cc",
+  "src/ORBmatcher.cc",
+  "src/Converter.cc",
+  "src/MapPoint.cc",
+  "src/KeyFrame.cc",
+  "src/Map.cc",
+  "src/Optimizer.cc",
+  "src/PnPsolver.cc",
+  "src/Frame.cc",
+  "src/KeyFrameDatabase.cc",
+  "src/Sim3Solver.cc",
+  "src/Initializer.cc",
+]
+
+[target.rgbd_tum]
+type = "executable"
+sources = ["Examples/RGB-D/rgbd_tum.cc"]
+defines = ["COMPILEDWITHC11"]
+deps = ["ORB_SLAM2"]
+
+[target.stereo_kitti]
+type = "executable"
+sources = ["Examples/Stereo/stereo_kitti.cc"]
+defines = ["COMPILEDWITHC11"]
+deps = ["ORB_SLAM2"]
+
+[target.stereo_euroc]
+type = "executable"
+sources = ["Examples/Stereo/stereo_euroc.cc"]
+defines = ["COMPILEDWITHC11"]
+deps = ["ORB_SLAM2"]
+
+[target.mono_tum]
+type = "executable"
+sources = ["Examples/Monocular/mono_tum.cc"]
+defines = ["COMPILEDWITHC11"]
+deps = ["ORB_SLAM2"]
+
+[target.mono_kitti]
+type = "executable"
+sources = ["Examples/Monocular/mono_kitti.cc"]
+defines = ["COMPILEDWITHC11"]
+deps = ["ORB_SLAM2"]
+
+[target.mono_euroc]
+type = "executable"
+sources = ["Examples/Monocular/mono_euroc.cc"]
+defines = ["COMPILEDWITHC11"]
+deps = ["ORB_SLAM2"]
+
+# One binary for all tests: 16 link steps against ORB_SLAM2 for no gain.
+[target.orbslam2_tests]
+type = "test"
+include-dirs = ["tests"]
+deps = ["ORB_SLAM2"]
+sources = [
+  "tests/converter_test.cc",
+  "tests/map_test.cc",
+  "tests/mappoint_test.cc",
+  "tests/keyframe_test.cc",
+  "tests/frame_test.cc",
+  "tests/orbextractor_test.cc",
+  "tests/orbmatcher_test.cc",
+  "tests/initializer_test.cc",
+  "tests/pnpsolver_test.cc",
+  "tests/sim3solver_test.cc",
+  "tests/optimizer_test.cc",
+  "tests/keyframedatabase_test.cc",
+  "tests/localmapping_test.cc",
+  "tests/loopclosing_test.cc",
+  "tests/tracking_test.cc",
+  "tests/system_test.cc",
+]

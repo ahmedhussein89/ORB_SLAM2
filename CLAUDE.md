@@ -4,47 +4,60 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-ORB-SLAM2 (Mur-Artal & Tardós), a real-time monocular/stereo/RGB-D SLAM library. GPLv3. C++17, CMake.
+ORB-SLAM2 (Mur-Artal & Tardós), a real-time monocular/stereo/RGB-D SLAM library. GPLv3. C++17, [cabin](https://cabinpkg.com) (`cabin.toml`).
 
-This fork is mid-migration off the original's dependencies: ROS and Pangolin are **gone**, the build targets OpenCV 4 / GCC 15 / CMake 4, and the library is now headless. A GLFW + Dear ImGui GUI is planned as a *separate executable* talking to a snapshot API — do not reintroduce a GUI dependency into the core library.
+This fork is mid-migration off the original's dependencies: ROS and Pangolin are **gone**, the build targets OpenCV 4 / GCC 15 and moved from CMake to cabin, and the library is now headless. A GLFW + Dear ImGui GUI is planned as a *separate executable* talking to a snapshot API — do not reintroduce a GUI dependency into the core library.
 
 ## Build
 
 ```bash
-./build.sh          # untars the vocabulary, then configures/builds everything in one tree
+./build.sh          # untars the vocabulary, then `cabin build --release`
 ```
 
 It is idempotent; rerunning is fine. For an incremental rebuild after editing `src/` or `include/`:
 
 ```bash
-cmake --build build -j
+cabin build --release      # or `cabin check` for a fast syntax-only pass
 ```
 
-Output: `lib/lib{ORB_SLAM2,DBoW2,g2o}.so`, binaries in `Examples/{Monocular,Stereo,RGB-D}/`. Every example takes `<vocabulary> <settings.yaml> <sequence path...>`, e.g.
+One package, `cabin.toml` at the root, with a target per artifact CMake used to
+produce: libraries `DBoW2`, `g2o`, `ORB_SLAM2`, the six examples, and `orbslam2_tests`.
+**Nothing is globbed** -- a new `.cc` file has to be added to a `sources` array by hand.
+
+Output: static `lib{DBoW2,g2o,ORB_SLAM2}.a` and all binaries in
+`build/release/packages/ORB_SLAM2/` (cabin has no shared-library kind, and it does not
+write into `Examples/` the way CMake did). Every example takes
+`<vocabulary> <settings.yaml> <sequence path...>`, e.g.
 
 ```bash
-./Examples/Monocular/mono_tum Vocabulary/ORBvoc.txt Examples/Monocular/TUM1.yaml PATH_TO_SEQUENCE
+./build/release/packages/ORB_SLAM2/mono_tum Vocabulary/ORBvoc.txt Examples/Monocular/TUM1.yaml PATH_TO_SEQUENCE
 ```
 
 `rgbd_tum` additionally needs an RGB/depth associations file (some are provided in `Examples/RGB-D/associations/`); the EuRoC examples additionally need a timestamps file from `Examples/*/EuRoC_TimeStamps/`.
 
-Deps: OpenCV 4, Eigen3 3.1+. No Pangolin, no ROS.
+Deps: OpenCV 4, Eigen3 3.1+, and GoogleTest/GoogleMock for the tests. All three are
+`system = true` in `cabin.toml`, i.e. found through **pkg-config** (`opencv4`, `eigen3`,
+`gmock_main`) rather than fetched -- install them with the OS package manager. A missing
+`.pc` file is what "package not found" from `cabin build` means. No Pangolin, no ROS.
 
 ### -march=native is an ABI flag here
 
-It is off by default, behind `ORBSLAM2_NATIVE_ARCH`. DBoW2 and g2o are `add_subdirectory`'d from the top-level `CMakeLists.txt`, so the one option propagates to all three — but **the setting must be identical across them**. It raises `EIGEN_MAX_ALIGN_BYTES` (16 → 64 on AVX-512), which changes the alignment and size of Eigen-containing types such as `g2o::SE3Quat`. Mixing the setting across those three libraries segfaults inside `g2o::BaseVertex::push` during the first global bundle adjustment, with no build-time warning. Do not build the Thirdparty projects standalone with a different setting.
+Use `cabin build --profile native` (a `[profile.native]` inheriting `release`); there is no
+per-target flag knob in cabin, so the flag necessarily applies to DBoW2, g2o and ORB_SLAM2 at
+once — which is what makes it safe, because **the setting must be identical across them**. It raises `EIGEN_MAX_ALIGN_BYTES` (16 → 64 on AVX-512), which changes the alignment and size of Eigen-containing types such as `g2o::SE3Quat`. Mixing the setting across those three libraries segfaults inside `g2o::BaseVertex::push` during the first global bundle adjustment, with no build-time warning. Do not build the Thirdparty sources standalone with a different setting.
 
 ## Testing
 
 Two layers. Unit tests (GoogleTest, one file per translation unit in `tests/`):
 
 ```bash
-cmake -S . -B build -DORBSLAM2_BUILD_TESTS=ON && cmake --build build -j
-ctest --test-dir build --output-on-failure
+cabin test
 ```
 
-Off by default (`ORBSLAM2_BUILD_TESTS`), so `build.sh` is unaffected. The whole suite is one
-binary, `build/tests/orbslam2_tests`, and runs in a few seconds. It never loads
+`test` targets are built only by `cabin test`, so `build.sh` is unaffected. The whole suite is one
+binary, `build/dev/packages/ORB_SLAM2/orbslam2_tests`, and runs in a few seconds. `cabin test`
+reports one pass/fail per target from the exit status -- it does not count gtest cases, so read
+the `[  PASSED  ] N tests.` line to see the real count. It never loads
 `Vocabulary/ORBvoc.txt`: `tests/synthetic.h` trains a 729-word vocabulary in memory from ORB
 descriptors of a synthetic dot plane, and supplies the frames, keyframes, calibration and
 settings file every test shares. Read that header before adding a test -- it records the
@@ -92,8 +105,9 @@ Localization Mode (`ActivateLocalizationMode`) stops LocalMapping and puts Track
 - Poses are `cv::Mat` 4x4 CV_32F world-to-camera (`Tcw`) unless the name says otherwise (`Twc` is the inverse).
 - The public API in `include/` mirrors the paper; keep changes to it minimal — downstream users link against it. `System`'s constructor still takes `bUseViewer`; it is accepted and ignored, kept so the signature did not break.
 - `PnPsolver`'s EPnP uses the OpenCV **C API** (`CvMat`, `cvSVD`, `cvSolve`, `cvInvert`) via `opencv2/core/core_c.h`. That API still ships in OpenCV 4, so it needs the header, not a rewrite. Leave the numerics alone.
-- `Thirdparty/DBoW2` and `Thirdparty/g2o` are *modified* forks, not upstream. Do not swap them for packaged versions without treating it as an algorithm change.
-- `include/`, `src/`, `Examples/` and `tests/` are clang-formatted (Google style, `.clang-format`); keep them that way. `Thirdparty/` is deliberately excluded — it is vendored.
+- `Thirdparty/DBoW2` and `Thirdparty/g2o` are *modified* forks, not upstream. Do not swap them for packaged versions without treating it as an algorithm change. They are targets of the root package rather than sub-packages, because cabin probes `system = true` deps only for the primary package -- as path dependencies they would not see OpenCV or Eigen.
+- `Thirdparty/g2o/config.h` used to be generated by `configure_file`. Cabin has no configure step, so the resolved header (both `#cmakedefine`s undefined, i.e. no OpenMP) is committed. Editing it is how you would turn `G2O_OPENMP` on -- along with adding `-fopenmp` to a profile.
+- `include/`, `src/`, `Examples/` and `tests/` are clang-formatted (Google style, `.clang-format`); keep them that way (`cabin fmt`). `Thirdparty/` is deliberately excluded — it is vendored.
 - **Include order is load-bearing**, which is why `.clang-format` sets `SortIncludes: Never` and `IncludeBlocks: Preserve`. Several headers (`Map.h`, `Frame.h`, `Initializer.h`, ...) use unqualified `vector`/`pair`/`map` and only compile because `Thirdparty/DBoW2`'s `TemplatedVocabulary.h` and `Timestamp.h` leak a `using namespace std;` in through an earlier include. Reordering includes breaks the build with `'vector' does not name a type`. Qualifying those names properly is a separate change from a formatting pass.
 
 ## Fixed upstream bugs

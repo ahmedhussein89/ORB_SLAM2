@@ -11,9 +11,11 @@ set -u
 R="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="${1:-${TMPDIR:-/tmp}/orbslam2_smoke}"
 VOC="$R/Vocabulary/ORBvoc.txt"
+BIN="${BIN:-$R/build/release/packages/ORB_SLAM2}"   # cabin build --release
 fail=0
 
 [ -f "$VOC" ] || { echo "missing $VOC (run build.sh to untar it)"; exit 1; }
+[ -x "$BIN/mono_tum" ] || { echo "missing $BIN/mono_tum (run build.sh)"; exit 1; }
 
 # check <name> <actual> <expected> <tolerance-fraction>
 check() {
@@ -39,18 +41,18 @@ run() {                      # run <mode> <settings> <extra-args...>
 echo "work dir: $WORK"
 
 # Monocular: no metric scale, so check the direction ratio instead.
-run mono "$R/Examples/Monocular/TUM1.yaml" "$R/Examples/Monocular/mono_tum"
+run mono "$R/Examples/Monocular/TUM1.yaml" "$BIN/mono_tum"
 ratio=$(tail -1 "$WORK/mono_out/KeyFrameTrajectory.txt" | awk '{print $2/$3}')
 check "mono x:y ratio" "$ratio" 2.0 0.15 || fail=1
 
 # Stereo: KITTI trajectory is a row-major 3x4 matrix, so tx is field 4.
-run stereo "$R/Examples/Stereo/KITTI00-02.yaml" "$R/Examples/Stereo/stereo_kitti"
+run stereo "$R/Examples/Stereo/KITTI00-02.yaml" "$BIN/stereo_kitti"
 tx=$(tail -1 "$WORK/stereo_out/CameraTrajectory.txt" | awk '{print $4}')
 check "stereo tx (m)" "$tx" 1.3633 0.10 || fail=1
 
 # RGB-D: TUM trajectory is "t tx ty tz qx qy qz qw", so tx is field 2.
 EXTRA="$WORK/rgbd/associations.txt" \
-    run rgbd "$R/Examples/RGB-D/TUM1.yaml" "$R/Examples/RGB-D/rgbd_tum"
+    run rgbd "$R/Examples/RGB-D/TUM1.yaml" "$BIN/rgbd_tum"
 tx=$(tail -1 "$WORK/rgbd_out/CameraTrajectory.txt" | awk '{print $2}')
 check "rgbd tx (m)" "$tx" 0.2861 0.10 || fail=1
 
