@@ -71,7 +71,8 @@ Localization Mode (`ActivateLocalizationMode`) stops LocalMapping and puts Track
 - The public API in `include/` mirrors the paper; keep changes to it minimal — downstream users link against it. `System`'s constructor still takes `bUseViewer`; it is accepted and ignored, kept so the signature did not break.
 - `PnPsolver`'s EPnP uses the OpenCV **C API** (`CvMat`, `cvSVD`, `cvSolve`, `cvInvert`) via `opencv2/core/core_c.h`. That API still ships in OpenCV 4, so it needs the header, not a rewrite. Leave the numerics alone.
 - `Thirdparty/DBoW2` and `Thirdparty/g2o` are *modified* forks, not upstream. Do not swap them for packaged versions without treating it as an algorithm change.
-- A `.clang-format` (Google style) exists, but the code does not conform to it. Do not reformat files you are only editing a few lines in — a whole-file reformat buries the real diff. A repo-wide format belongs in its own commit.
+- `include/`, `src/` and `Examples/` are clang-formatted (Google style, `.clang-format`); keep them that way. `Thirdparty/` is deliberately excluded — it is vendored.
+- **Include order is load-bearing**, which is why `.clang-format` sets `SortIncludes: Never` and `IncludeBlocks: Preserve`. Several headers (`Map.h`, `Frame.h`, `Initializer.h`, ...) use unqualified `vector`/`pair`/`map` and only compile because `Thirdparty/DBoW2`'s `TemplatedVocabulary.h` and `Timestamp.h` leak a `using namespace std;` in through an earlier include. Reordering includes breaks the build with `'vector' does not name a type`. Qualifying those names properly is a separate change from a formatting pass.
 
 ## Known upstream bugs, not yet fixed
 
