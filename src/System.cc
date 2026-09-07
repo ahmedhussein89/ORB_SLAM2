@@ -20,6 +20,7 @@
 
 
 
+#include <unistd.h>   // usleep
 #include "System.h"
 #include "Converter.h"
 #include <thread>

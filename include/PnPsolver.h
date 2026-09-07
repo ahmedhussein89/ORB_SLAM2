@@ -52,6 +52,7 @@
 #define PNPSOLVER_H
 
 #include <opencv2/core/core.hpp>
+#include <opencv2/core/core_c.h>   // CvMat: EPnP still uses the OpenCV C API
 #include "MapPoint.h"
 #include "Frame.h"
 
