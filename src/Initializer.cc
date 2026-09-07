@@ -62,6 +62,11 @@ bool Initializer::Initialize(const Frame& CurrentFrame,
 
   const int N = mvMatches12.size();
 
+  // Each RANSAC iteration draws eight distinct matches below; with fewer than that,
+  // RandomInt(0, size-1) underflows and the sample indexes out of bounds.
+  if(N < 8)
+    return false;
+
   // Indices for minimum set selection
   vector<size_t> vAllIndices;
   vAllIndices.reserve(N);

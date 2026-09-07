@@ -257,9 +257,13 @@ void Sim3Solver::ComputeSim3(cv::Mat& P1, cv::Mat& P2) {
   (evec.row(0).colRange(1, 4)).copyTo(vec);    // extract imaginary part of the quaternion (sin*axis)
 
   // Rotation angle. sin is the norm of the imaginary part, cos is the real part
-  double ang = atan2(norm(vec), evec.at<float>(0, 0));
+  const double nvec = norm(vec);
+  double ang = atan2(nvec, evec.at<float>(0, 0));
 
-  vec = 2 * ang * vec / norm(vec);    // Angle-axis representation. quaternion angle is the half
+  // An identity rotation has a zero imaginary part, and scaling it would be 0/0. vec is
+  // already the zero angle-axis vector in that case, which Rodrigues maps to the identity.
+  if(nvec > 0)
+    vec = 2 * ang * vec / nvec;    // Angle-axis representation. quaternion angle is the half
 
   mR12i.create(3, 3, P1.type());
 

@@ -34,7 +34,6 @@ public:
   static std::vector<cv::Mat> toDescriptorVector(const cv::Mat& Descriptors);
 
   static g2o::SE3Quat toSE3Quat(const cv::Mat& cvT);
-  static g2o::SE3Quat toSE3Quat(const g2o::Sim3& gSim3);
 
   static cv::Mat toCvMat(const g2o::SE3Quat& SE3);
   static cv::Mat toCvMat(const g2o::Sim3& Sim3);

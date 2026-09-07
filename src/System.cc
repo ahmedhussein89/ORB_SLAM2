@@ -28,7 +28,11 @@
 namespace ORB_SLAM2 {
 
 System::System(const string& strVocFile, const string& strSettingsFile, const eSensor sensor, const bool bUseViewer)
-    : mSensor(sensor), mbReset(false), mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false) {
+    : mSensor(sensor)
+    , mbReset(false)
+    , mbActivateLocalizationMode(false)
+    , mbDeactivateLocalizationMode(false)
+    , mTrackingState(Tracking::SYSTEM_NOT_READY) {
   // Output welcome message
   cout << endl
        << "ORB-SLAM2 Copyright (C) 2014-2016 Raul Mur-Artal, University of Zaragoza." << endl

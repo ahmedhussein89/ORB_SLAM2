@@ -74,6 +74,16 @@ Localization Mode (`ActivateLocalizationMode`) stops LocalMapping and puts Track
 - `include/`, `src/` and `Examples/` are clang-formatted (Google style, `.clang-format`); keep them that way. `Thirdparty/` is deliberately excluded — it is vendored.
 - **Include order is load-bearing**, which is why `.clang-format` sets `SortIncludes: Never` and `IncludeBlocks: Preserve`. Several headers (`Map.h`, `Frame.h`, `Initializer.h`, ...) use unqualified `vector`/`pair`/`map` and only compile because `Thirdparty/DBoW2`'s `TemplatedVocabulary.h` and `Timestamp.h` leak a `using namespace std;` in through an earlier include. Reordering includes breaks the build with `'vector' does not name a type`. Qualifying those names properly is a separate change from a formatting pass.
 
+## Fixed upstream bugs
+
+Divergences from upstream ORB-SLAM2, each covered by a test:
+
+- `Converter::toSE3Quat(const g2o::Sim3&)` was declared in `include/Converter.h` and defined nowhere; the declaration is gone. Nothing called it, and nothing could have -- it never linked.
+- `Initializer::Initialize` draws eight matches per RANSAC iteration with `RandomInt(0, N-1)`, which underflowed and indexed out of bounds below eight matches. It now returns false. `Tracking` never reached this (it bails out below 100 matches).
+- `Sim3Solver::ComputeSim3` normalised the rotation axis with `vec / norm(vec)`, returning an all-NaN transform when the true rotation was exactly the identity. Guarded; a zero angle-axis vector is already the identity for `Rodrigues`.
+- `ORBextractor::DistributeOctTree` sorted `(node size, ExtractorNode*)` pairs, so ties broke on heap addresses and roughly 2-3% of keypoints moved between two extractions of the same image. It now `stable_sort`s on the size alone, which makes extraction bit-reproducible.
+- `System::mTrackingState` was never initialised, so `GetTrackingState()` returned garbage before the first `Track*` call. Now `Tracking::SYSTEM_NOT_READY`.
+
 ## Known upstream bugs, not yet fixed
 
 - `LoadImages` in every example uses `while(!f.eof())`. If the sequence path is wrong the stream never opens, `eof()` never becomes true, and the binary spins at 100% CPU forever with no output instead of reporting the bad path.
