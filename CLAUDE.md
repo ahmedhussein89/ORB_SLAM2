@@ -36,6 +36,28 @@ It is off by default, behind `ORBSLAM2_NATIVE_ARCH`. DBoW2 and g2o are `add_subd
 
 ## Testing
 
+Two layers. Unit tests (GoogleTest, one file per translation unit in `tests/`):
+
+```bash
+cmake -S . -B build -DORBSLAM2_BUILD_TESTS=ON && cmake --build build -j
+ctest --test-dir build --output-on-failure
+```
+
+Off by default (`ORBSLAM2_BUILD_TESTS`), so `build.sh` is unaffected. The whole suite is one
+binary, `build/tests/orbslam2_tests`, and runs in a few seconds. It never loads
+`Vocabulary/ORBvoc.txt`: `tests/synthetic.h` trains a 729-word vocabulary in memory from ORB
+descriptors of a synthetic dot plane, and supplies the frames, keyframes, calibration and
+settings file every test shares. Read that header before adding a test -- it records the
+traps (`Frame`'s mutable statics, the deliberate leaks, the bounded-wait helper for the
+thread tests).
+
+ORB extraction is bit-reproducible and `ORBextractor.IsDeterministic` guards that; everything
+downstream of RANSAC or g2o is not, so those tests seed `rand()` and assert directions,
+magnitudes and inlier counts rather than exact numbers. `Tracking`, `LocalMapping`, `LoopClosing`, `KeyFrameDatabase` and `System` are covered for
+lifecycle, wiring and short end-to-end runs, not for SLAM quality.
+
+The end-to-end smoke test:
+
 ```bash
 ./tools/smoke_test.sh
 ```
@@ -71,7 +93,7 @@ Localization Mode (`ActivateLocalizationMode`) stops LocalMapping and puts Track
 - The public API in `include/` mirrors the paper; keep changes to it minimal — downstream users link against it. `System`'s constructor still takes `bUseViewer`; it is accepted and ignored, kept so the signature did not break.
 - `PnPsolver`'s EPnP uses the OpenCV **C API** (`CvMat`, `cvSVD`, `cvSolve`, `cvInvert`) via `opencv2/core/core_c.h`. That API still ships in OpenCV 4, so it needs the header, not a rewrite. Leave the numerics alone.
 - `Thirdparty/DBoW2` and `Thirdparty/g2o` are *modified* forks, not upstream. Do not swap them for packaged versions without treating it as an algorithm change.
-- `include/`, `src/` and `Examples/` are clang-formatted (Google style, `.clang-format`); keep them that way. `Thirdparty/` is deliberately excluded — it is vendored.
+- `include/`, `src/`, `Examples/` and `tests/` are clang-formatted (Google style, `.clang-format`); keep them that way. `Thirdparty/` is deliberately excluded — it is vendored.
 - **Include order is load-bearing**, which is why `.clang-format` sets `SortIncludes: Never` and `IncludeBlocks: Preserve`. Several headers (`Map.h`, `Frame.h`, `Initializer.h`, ...) use unqualified `vector`/`pair`/`map` and only compile because `Thirdparty/DBoW2`'s `TemplatedVocabulary.h` and `Timestamp.h` leak a `using namespace std;` in through an earlier include. Reordering includes breaks the build with `'vector' does not name a type`. Qualifying those names properly is a separate change from a formatting pass.
 
 ## Fixed upstream bugs

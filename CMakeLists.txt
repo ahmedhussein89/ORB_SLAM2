@@ -25,3 +25,10 @@ add_subdirectory(Thirdparty)
 add_subdirectory(src)
 
 add_subdirectory(Examples)
+
+option(ORBSLAM2_BUILD_TESTS "Build unit tests with GoogleTest" OFF)
+if(ORBSLAM2_BUILD_TESTS)
+  find_package(GTest REQUIRED)
+  enable_testing()
+  add_subdirectory(tests)
+endif()
