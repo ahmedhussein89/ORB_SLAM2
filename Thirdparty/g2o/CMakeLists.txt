@@ -1,104 +1,18 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.16)
-SET(CMAKE_LEGACY_CYGWIN_WIN32 0)
+cmake_minimum_required(VERSION 3.16)
+project(g2o LANGUAGES C CXX)
 
-PROJECT(g2o)
-
-SET(g2o_C_FLAGS)
-SET(g2o_CXX_FLAGS)
-
-# default built type
-IF(NOT CMAKE_BUILD_TYPE)
-  SET(CMAKE_BUILD_TYPE Release)
-ENDIF()
-
-MESSAGE(STATUS "BUILD TYPE:" ${CMAKE_BUILD_TYPE})
-
-SET (G2O_LIB_TYPE SHARED)
-
-# There seems to be an issue with MSVC8
-# see http://eigen.tuxfamily.org/bz/show_bug.cgi?id=83
-if(MSVC90)
-  add_definitions(-DEIGEN_DONT_ALIGN_STATICALLY=1)
-  message(STATUS "Disabling memory alignment for MSVC8")
-endif(MSVC90)
-
-# Set the output directory for the build executables and libraries
-IF(WIN32)
-  SET(g2o_LIBRARY_OUTPUT_DIRECTORY ${g2o_SOURCE_DIR}/bin CACHE PATH "Target for the libraries")
-ELSE(WIN32)
-  SET(g2o_LIBRARY_OUTPUT_DIRECTORY ${g2o_SOURCE_DIR}/lib CACHE PATH "Target for the libraries")
-ENDIF(WIN32)
-SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${g2o_LIBRARY_OUTPUT_DIRECTORY})
-SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${g2o_LIBRARY_OUTPUT_DIRECTORY})
-SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${g2o_RUNTIME_OUTPUT_DIRECTORY})
-
-# Set search directory for looking for our custom CMake scripts to
-# look for SuiteSparse, QGLViewer, and Eigen3.
-LIST(APPEND CMAKE_MODULE_PATH ${g2o_SOURCE_DIR}/cmake_modules)
-
-# Detect OS and define macros appropriately
-IF(UNIX)
-  ADD_DEFINITIONS(-DUNIX)
-  MESSAGE(STATUS "Compiling on Unix")
-ENDIF(UNIX)
-
-# Eigen library parallelise itself, though, presumably due to performance issues
-# OPENMP is experimental. We experienced some slowdown with it
-FIND_PACKAGE(OpenMP)
-SET(G2O_USE_OPENMP OFF CACHE BOOL "Build g2o with OpenMP support (EXPERIMENTAL)")
-IF(OPENMP_FOUND AND G2O_USE_OPENMP)
-  SET (G2O_OPENMP 1)
-  SET(g2o_C_FLAGS "${g2o_C_FLAGS} ${OpenMP_C_FLAGS}")
-  SET(g2o_CXX_FLAGS "${g2o_CXX_FLAGS} -DEIGEN_DONT_PARALLELIZE ${OpenMP_CXX_FLAGS}")
-  MESSAGE(STATUS "Compiling with OpenMP support")
-ENDIF(OPENMP_FOUND AND G2O_USE_OPENMP)
-
-# Compiler specific options for gcc
-SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
-SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3")
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# -march=native MUST match across ORB_SLAM2, DBoW2 and g2o. It raises
-# EIGEN_MAX_ALIGN_BYTES (16 -> 64 on AVX-512), which changes the alignment and size of
-# Eigen-containing types such as g2o::SE3Quat. Mixing settings across these libraries
-# segfaults inside g2o's optimizer. Toggle it for all three or none.
-option(ORBSLAM2_NATIVE_ARCH "Build with -march=native" OFF)
-if(ORBSLAM2_NATIVE_ARCH)
-  add_compile_options(-march=native)
+# Eigen parallelises itself; OpenMP here is experimental and has measured slower.
+option(G2O_USE_OPENMP "Build g2o with OpenMP support (EXPERIMENTAL)" OFF)
+if(G2O_USE_OPENMP)
+  find_package(OpenMP REQUIRED)
+  set(G2O_OPENMP 1)
 endif()
- 
 
-# activate warnings !!!
-SET(g2o_C_FLAGS "${g2o_C_FLAGS} -Wall -W")
-SET(g2o_CXX_FLAGS "${g2o_CXX_FLAGS} -Wall -W")
+find_package(Eigen3 3.1.0 REQUIRED)
 
-# specifying compiler flags
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${g2o_CXX_FLAGS}")
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${g2o_C_FLAGS}")
-
-# Find Eigen3
-SET(EIGEN3_INCLUDE_DIR ${G2O_EIGEN3_INCLUDE})
-FIND_PACKAGE(Eigen3 3.1.0 REQUIRED)
-IF(EIGEN3_FOUND)
-  SET(G2O_EIGEN3_INCLUDE ${EIGEN3_INCLUDE_DIR} CACHE PATH "Directory of Eigen3")
-ELSE(EIGEN3_FOUND)
-  SET(G2O_EIGEN3_INCLUDE "" CACHE PATH "Directory of Eigen3")
-ENDIF(EIGEN3_FOUND)
-
-# Generate config.h
-SET(G2O_CXX_COMPILER "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER}")
 configure_file(config.h.in ${g2o_SOURCE_DIR}/config.h)
 
-# Set up the top-level include directories
-INCLUDE_DIRECTORIES(
-${g2o_SOURCE_DIR}/core
-${g2o_SOURCE_DIR}/types
-${g2o_SOURCE_DIR}/stuff 
-${G2O_EIGEN3_INCLUDE})
-
-# Include the subdirectories
-ADD_LIBRARY(g2o ${G2O_LIB_TYPE}
+ADD_LIBRARY(g2o SHARED
 #types
 g2o/types/types_sba.h
 g2o/types/types_six_dof_expmap.h
@@ -184,3 +98,13 @@ g2o/stuff/string_tools.cpp
 g2o/stuff/property.cpp       
 g2o/stuff/property.h       
 )
+
+target_include_directories(g2o PUBLIC ${g2o_SOURCE_DIR} ${EIGEN3_INCLUDE_DIR})
+target_compile_features(g2o PUBLIC cxx_std_17)
+if(UNIX)
+  target_compile_definitions(g2o PRIVATE UNIX)
+endif()
+if(G2O_USE_OPENMP)
+  target_compile_definitions(g2o PRIVATE EIGEN_DONT_PARALLELIZE)
+  target_link_libraries(g2o PUBLIC OpenMP::OpenMP_CXX)
+endif()
