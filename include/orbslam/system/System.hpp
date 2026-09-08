@@ -126,6 +126,17 @@ public:
   std::vector<MapPoint*> GetTrackedMapPoints();
   std::vector<cv::KeyPoint> GetTrackedKeyPointsUn();
 
+  // Read-only handles for an external visualizer. The GUI lives in its own
+  // executable (see .claude/plans/migration.md sections 15-17); these two are the
+  // only door it needs. Both objects are internally mutex-protected -- take
+  // Map::mMutexMapUpdate around anything that walks poses.
+  Map* GetMap() const noexcept {
+    return mpMap;
+  }
+  Tracking* GetTracker() const noexcept {
+    return mpTracker;
+  }
+
 private:
   // Input sensor
   eSensor mSensor;
