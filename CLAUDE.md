@@ -36,7 +36,27 @@ One package, `cabin.toml` at the root. The library is two targets, not one:
   not add a `#include "orbslam/system/..."` (or tracking/mapping/loop_closing) to
   anything under `src/core/` or `src/features/`.
 
-Plus `DBoW2`, `g2o`, the six examples, and `orbslam2_tests`.
+Plus `DBoW2`, `g2o`, vendored `imgui`, the six examples, `orbslam2_viewer` and `orbslam2_tests`.
+
+`orbslam2_viewer` (`apps/viewer/`) is the GLFW3 + OpenGL + Dear ImGui visualizer, a
+**separate executable** so the libraries stay headless -- neither `orbslam2_core` nor
+`orbslam2_slam` includes GL, GLFW or ImGui. It needs `libglfw3-dev` (pkg-config `glfw3`)
+and `gl`; the modern GL entry points come from `GL_GLEXT_PROTOTYPES` + libglvnd, so there
+is deliberately no glad/glew/epoxy. `--headless` runs the same dataset loop with no window:
+
+```bash
+./build/release/packages/ORB_SLAM2/orbslam2_viewer \
+  --vocabulary Vocabulary/ORBvoc.txt --settings Examples/Stereo/KITTI00-02.yaml \
+  --sensor stereo --format kitti --dataset PATH [--assoc F] [--times F] [--headless] [--trajectory OUT]
+```
+
+The core library's only concession to it is `System::GetMap()` / `System::GetTracker()`.
+Everything the GUI shows crosses the thread boundary through
+`orbslam_viewer::BuildSnapshot` (`apps/viewer/Snapshot.cpp`), which runs on the SLAM
+thread under `Map::mMutexMapUpdate` and copies out **values only** -- no `MapPoint*` or
+`KeyFrame*` ever reaches the render thread, because the map may `SetBadFlag()`/`Replace()`
+them mid-frame. `Thirdparty/imgui` is vendored (v1.91.5, upstream GLFW/OpenGL3 backends,
+no custom backend) because Dear ImGui ships no pkg-config file.
 **Nothing is globbed** -- a new `.cpp` file has to be added to a `sources` array by hand.
 
 Output: static `lib{DBoW2,g2o,orbslam2_core,orbslam2_slam}.a` and all binaries in
@@ -147,6 +167,8 @@ mapping/      LocalMapping
 loop_closing/ LoopClosing
 optimization/ Optimizer PnPsolver Sim3Solver
 system/       System
+
+apps/viewer/  Snapshot Viewer main            -- orbslam2_viewer, depends on slam
 ```
 
 

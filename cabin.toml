@@ -168,10 +168,23 @@ sources = ["Examples/Monocular/mono_euroc.cpp"]
 defines = ["COMPILEDWITHC11"]
 deps = ["orbslam2_slam"]
 
+# The GLFW/OpenGL/ImGui visualizer. A separate executable on purpose: the core
+# libraries stay headless and know nothing about GL. --headless runs the same
+# dataset loop with no window.
+[target.orbslam2_viewer]
+type = "executable"
+include-dirs = [".", "include", "apps/viewer"]
+sources = [
+  "apps/viewer/main.cpp",
+  "apps/viewer/Snapshot.cpp",
+  "apps/viewer/Viewer.cpp",
+]
+deps = ["orbslam2_slam", "imgui"]
+
 # One binary for all tests: 16 link steps against orbslam2_slam for no gain.
 [target.orbslam2_tests]
 type = "test"
-include-dirs = ["tests"]
+include-dirs = ["tests", "apps/viewer"]
 deps = ["orbslam2_slam"]
 sources = [
   "tests/converter_test.cpp",
@@ -190,4 +203,6 @@ sources = [
   "tests/loopclosing_test.cpp",
   "tests/tracking_test.cpp",
   "tests/system_test.cpp",
+  "tests/snapshot_test.cpp",
+  "apps/viewer/Snapshot.cpp",
 ]
