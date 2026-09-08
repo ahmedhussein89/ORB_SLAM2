@@ -59,7 +59,13 @@ namespace g2o {
 
     static const int Dimension = D;           ///< dimension of the estimate (minimal) in the manifold space
 
+// Vendored g2o. AlignedBit is deprecated in current Eigen, but the expression below
+// decides the alignment of the Hessian block Map and must not be "modernised" --
+// changing it alters the size/alignment of g2o types (see CLAUDE.md on -march=native).
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     typedef Eigen::Map<Matrix<double, D, D>, Matrix<double,D,D>::Flags & AlignedBit ? Aligned : Unaligned >  HessianBlockType;
+#pragma GCC diagnostic pop
 
   public:
     BaseVertex();

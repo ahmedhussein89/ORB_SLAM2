@@ -27,7 +27,7 @@
 
 namespace ORB_SLAM2 {
 
-System::System(const string& strVocFile, const string& strSettingsFile, const eSensor sensor, const bool bUseViewer)
+System::System(const string& strVocFile, const string& strSettingsFile, const eSensor sensor, [[maybe_unused]] const bool bUseViewer)
     : mSensor(sensor)
     , mbReset(false)
     , mbActivateLocalizationMode(false)

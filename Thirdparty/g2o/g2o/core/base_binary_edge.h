@@ -56,8 +56,14 @@ namespace g2o {
       typedef typename BaseEdge<D,E>::ErrorVector ErrorVector;
       typedef typename BaseEdge<D,E>::InformationType InformationType;
 
+// Vendored g2o. AlignedBit is deprecated in current Eigen, but the expression below
+// decides the alignment of the Hessian block Map and must not be "modernised" --
+// changing it alters the size/alignment of g2o types (see CLAUDE.md on -march=native).
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
       typedef Eigen::Map<Matrix<double, Di, Dj>, Matrix<double, Di, Dj>::Flags & AlignedBit ? Aligned : Unaligned > HessianBlockType;
       typedef Eigen::Map<Matrix<double, Dj, Di>, Matrix<double, Dj, Di>::Flags & AlignedBit ? Aligned : Unaligned > HessianBlockTransposedType;
+#pragma GCC diagnostic pop
 
       BaseBinaryEdge() : BaseEdge<D,E>(),
       _hessianRowMajor(false),

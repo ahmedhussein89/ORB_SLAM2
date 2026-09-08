@@ -32,8 +32,14 @@ class FClass
    * @param descriptors
    * @param mean mean descriptor
    */
+// Vendored DBoW2. FClass is a documentation-only base -- every member is private and
+// nothing dispatches through it -- and FORB deliberately hides this with a static
+// meanValue. Un-hiding it would restructure DBoW2's class hierarchy.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Woverloaded-virtual"
   virtual void meanValue(const std::vector<pDescriptor> &descriptors, 
     TDescriptor &mean) = 0;
+#pragma GCC diagnostic pop
   
   /**
    * Calculates the distance between two descriptors

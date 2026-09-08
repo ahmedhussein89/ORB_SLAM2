@@ -22,8 +22,9 @@ TEST(ORBextractor, ScalePyramidInfo) {
     EXPECT_NEAR(s[i] * inv[i], 1.f, 1e-4);
     EXPECT_NEAR(s2[i], s[i] * s[i], 1e-3);
     EXPECT_NEAR(s2[i] * inv2[i], 1.f, 1e-3);
-    if(i)
+    if(i) {
       EXPECT_NEAR(s[i], s[i - 1] * 1.2f, 1e-4);
+    }
   }
 }
 

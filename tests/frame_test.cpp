@@ -72,9 +72,11 @@ TEST(Frame, StereoMatchingRecoversThePlaneDisparity) {
   EXPECT_GT(within5pct, static_cast<int>(depths.size()) * 3 / 4);
 
   // mvuRight must be consistent with mvDepth: u_right = u_left - bf/z.
-  for(int i = 0; i < F.N; ++i)
-    if(F.mvDepth[i] > 0.f)
+  for(int i = 0; i < F.N; ++i) {
+    if(F.mvDepth[i] > 0.f) {
       EXPECT_NEAR(F.mvuRight[i], F.mvKeys[i].pt.x - synth::Calib().bf / F.mvDepth[i], 1e-2);
+    }
+  }
 }
 
 TEST(Frame, PoseMatricesAreConsistent) {

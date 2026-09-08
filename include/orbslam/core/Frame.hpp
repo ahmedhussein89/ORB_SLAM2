@@ -45,6 +45,15 @@ public:
   // Copy constructor.
   Frame(const Frame& frame);
 
+  // Defaulted on purpose, and NOT a mirror of the copy constructor above. The
+  // constructor deep-copies the cv::Mat members (.clone()) and routes the pose
+  // through SetPose(), which also skips an empty mTcw and so leaves the target's
+  // previous pose in place. Assignment has always been the plain memberwise
+  // version -- shared cv::Mat buffers, mTcw overwritten as-is -- and Tracking
+  // relies on that. Declaring it keeps the behaviour identical while silencing
+  // the -Wdeprecated-copy that the user-provided copy constructor triggers.
+  Frame& operator=(const Frame&) = default;
+
   // Constructor for stereo cameras.
   Frame(const cv::Mat& imLeft,
         const cv::Mat& imRight,

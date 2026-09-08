@@ -77,12 +77,12 @@ bool EdgeSE3ProjectXYZ::read(std::istream& is){
   for (int i=0; i<2; i++){
     is >> _measurement[i];
   }
-  for (int i=0; i<2; i++)
-    for (int j=i; j<2; j++) {
-      is >> information()(i,j);
-      if (i!=j)
-        information()(j,i)=information()(i,j);
-    }
+    // Unrolled from the i/j loop upstream uses. GCC miscounts the trip count of
+    // `for (int j=i; j<2; j++)` over a 2x2 Eigen block and reports the (provably
+    // in-bounds) body as undefined behaviour -Waggressive-loop-optimizations.
+    // Same three values, same read order, symmetric entry mirrored.
+    is >> information()(0,0) >> information()(0,1) >> information()(1,1);
+    information()(1,0) = information()(0,1);
   return true;
 }
 
@@ -240,12 +240,12 @@ bool EdgeSE3ProjectXYZOnlyPose::read(std::istream& is){
   for (int i=0; i<2; i++){
     is >> _measurement[i];
   }
-  for (int i=0; i<2; i++)
-    for (int j=i; j<2; j++) {
-      is >> information()(i,j);
-      if (i!=j)
-        information()(j,i)=information()(i,j);
-    }
+    // Unrolled from the i/j loop upstream uses. GCC miscounts the trip count of
+    // `for (int j=i; j<2; j++)` over a 2x2 Eigen block and reports the (provably
+    // in-bounds) body as undefined behaviour -Waggressive-loop-optimizations.
+    // Same three values, same read order, symmetric entry mirrored.
+    is >> information()(0,0) >> information()(0,1) >> information()(1,1);
+    information()(1,0) = information()(0,1);
   return true;
 }
 

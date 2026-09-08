@@ -16,7 +16,7 @@ gmock_main = { version = ">=1.10", system = true }
 # -Wall everywhere; CMake put it on the ORB_SLAM2 library only, but target-scoped flags
 # do not exist in cabin and Thirdparty is already warning-clean enough.
 [profile]
-cxxflags = ["-Wall"]
+cxxflags = ["-Wall", "-Wextra"]
 
 # Replaces -DORBSLAM2_NATIVE_ARCH=ON. -march=native raises EIGEN_MAX_ALIGN_BYTES
 # (16 -> 64 on AVX-512), which changes the size/alignment of Eigen-containing
