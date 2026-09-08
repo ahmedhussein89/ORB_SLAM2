@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-ORB-SLAM2 (Mur-Artal & Tardós), a real-time monocular/stereo/RGB-D SLAM library. GPLv3. C++17, [cabin](https://cabinpkg.com) (`cabin.toml`).
+ORB-SLAM2 (Mur-Artal & Tardós), a real-time monocular/stereo/RGB-D SLAM library. GPLv3. C++20, [cabin](https://cabinpkg.com) (`cabin.toml`).
 
 This fork is mid-migration off the original's dependencies: ROS and Pangolin are **gone**, the build targets OpenCV 4 / GCC 15 and moved from CMake to cabin, and the library is now headless. A GLFW + Dear ImGui GUI is planned as a *separate executable* talking to a snapshot API — do not reintroduce a GUI dependency into the core library.
 
@@ -14,17 +14,32 @@ This fork is mid-migration off the original's dependencies: ROS and Pangolin are
 ./build.sh          # untars the vocabulary, then `cabin build --release`
 ```
 
+**This machine is WSL2 with 16 cores; saturating all of them takes the WSL service
+down mid-build.** `build.sh` therefore exports `CABIN_BUILD_JOBS=12` unless you set it
+yourself. Invoking cabin directly, pass `-j12` (or export the same variable). The same
+cap applies to long dataset runs -- prefix them with `taskset -c 0-11`.
+
 It is idempotent; rerunning is fine. For an incremental rebuild after editing `src/` or `include/`:
 
 ```bash
 cabin build --release      # or `cabin check` for a fast syntax-only pass
 ```
 
-One package, `cabin.toml` at the root, with a target per artifact CMake used to
-produce: libraries `DBoW2`, `g2o`, `ORB_SLAM2`, the six examples, and `orbslam2_tests`.
-**Nothing is globbed** -- a new `.cc` file has to be added to a `sources` array by hand.
+One package, `cabin.toml` at the root. The library is two targets, not one:
 
-Output: static `lib{DBoW2,g2o,ORB_SLAM2}.a` and all binaries in
+- `orbslam2_core` -- `src/core/` + `src/features/`: Map, MapPoint, KeyFrame, Frame,
+  Converter, ORBextractor, ORBmatcher, KeyFrameDatabase. These are mutually cyclic
+  (Frame needs ORBextractor, ORBmatcher needs Frame) so they cannot be split further.
+- `orbslam2_slam` -- `src/tracking/`, `src/mapping/`, `src/loop_closing/`,
+  `src/optimization/`, `src/system/`. Depends on `orbslam2_core`, publicly.
+  **Nothing depends back on it**; that one-way edge is the point of the split, so do
+  not add a `#include "orbslam/system/..."` (or tracking/mapping/loop_closing) to
+  anything under `src/core/` or `src/features/`.
+
+Plus `DBoW2`, `g2o`, the six examples, and `orbslam2_tests`.
+**Nothing is globbed** -- a new `.cpp` file has to be added to a `sources` array by hand.
+
+Output: static `lib{DBoW2,g2o,orbslam2_core,orbslam2_slam}.a` and all binaries in
 `build/release/packages/ORB_SLAM2/` (cabin has no shared-library kind, and it does not
 write into `Examples/` the way CMake did). Every example takes
 `<vocabulary> <settings.yaml> <sequence path...>`, e.g.
@@ -43,12 +58,13 @@ Deps: OpenCV 4, Eigen3 3.1+, and GoogleTest/GoogleMock for the tests. All three 
 ### -march=native is an ABI flag here
 
 Use `cabin build --profile native` (a `[profile.native]` inheriting `release`); there is no
-per-target flag knob in cabin, so the flag necessarily applies to DBoW2, g2o and ORB_SLAM2 at
-once — which is what makes it safe, because **the setting must be identical across them**. It raises `EIGEN_MAX_ALIGN_BYTES` (16 → 64 on AVX-512), which changes the alignment and size of Eigen-containing types such as `g2o::SE3Quat`. Mixing the setting across those three libraries segfaults inside `g2o::BaseVertex::push` during the first global bundle adjustment, with no build-time warning. Do not build the Thirdparty sources standalone with a different setting.
+per-target flag knob in cabin, so the flag necessarily applies to DBoW2, g2o,
+`orbslam2_core` and `orbslam2_slam` at once — which is what makes it safe, because **the setting must be identical across them**. It raises `EIGEN_MAX_ALIGN_BYTES` (16 → 64 on AVX-512), which changes the alignment and size of Eigen-containing types such as `g2o::SE3Quat`. Mixing the setting across those libraries segfaults inside `g2o::BaseVertex::push` during the first global bundle adjustment, with no build-time warning. Do not build the Thirdparty sources standalone with a different setting.
 
 ## Testing
 
-Two layers. Unit tests (GoogleTest, one file per translation unit in `tests/`):
+Two layers. Unit tests (GoogleTest, one file per translation unit in `tests/`, flat -- they are
+not split by module the way `src/` is):
 
 ```bash
 cabin test
@@ -58,7 +74,7 @@ cabin test
 binary, `build/dev/packages/ORB_SLAM2/orbslam2_tests`, and runs in a few seconds. `cabin test`
 reports one pass/fail per target from the exit status -- it does not count gtest cases, so read
 the `[  PASSED  ] N tests.` line to see the real count. It never loads
-`Vocabulary/ORBvoc.txt`: `tests/synthetic.h` trains a 729-word vocabulary in memory from ORB
+`Vocabulary/ORBvoc.txt`: `tests/synthetic.hpp` trains a 729-word vocabulary in memory from ORB
 descriptors of a synthetic dot plane, and supplies the frames, keyframes, calibration and
 settings file every test shares. Read that header before adding a test -- it records the
 traps (`Frame`'s mutable statics, the deliberate leaks, the bounded-wait helper for the
@@ -79,19 +95,64 @@ Generates synthetic sequences (`tools/make_synth_seq.py`), runs all three sensor
 
 This catches a broken build or a broken port. It is **not** a regression test: there is no recorded baseline, and a planar 50-frame scene exercises no loop closure, no relocalization and no scale drift.
 
-For a real check that a change did not regress SLAM, run a TUM/KITTI/EuRoC sequence and compare trajectories: on shutdown the examples call `System::SaveTrajectoryTUM` / `SaveTrajectoryKITTI` / `SaveKeyFrameTrajectoryTUM`. Results are not bit-deterministic (RANSAC + thread interleaving), so compare magnitudes, not exact numbers.
+For a real check that a change did not regress SLAM, run a KITTI sequence and score it.
+`tools/kitti_eval.py <estimate> <ground-truth>` (numpy only -- no `evo`, no gnuplot, the
+C++ devkit is not compiled) prints the official KITTI segment translation/rotation error
+plus an unaligned ATE RMSE. `--selfcheck` scores the ground truth against itself and must
+print zero.
+
+The odometry zips are in `../dataset/`; extract per sequence (`unzip -n
+data_odometry_gray.zip 'dataset/sequences/00/*'`) rather than unpacking all 22 GB. Pair
+the settings file correctly -- **00-02 use `KITTI00-02.yaml`, 04-12 use
+`KITTI04-12.yaml`** (different `fx` and `Camera.bf`; the wrong one silently rescales the
+whole trajectory). `SaveTrajectoryKITTI` writes a *relative* path, so run each sequence
+from its own output directory. `runs/` is gitignored.
+
+```bash
+D=../dataset/dataset
+mkdir -p runs/00 && (cd runs/00 && taskset -c 0-11 ../../build/release/packages/ORB_SLAM2/stereo_kitti \
+  ../../Vocabulary/ORBvoc.txt ../../Examples/Stereo/KITTI00-02.yaml $D/sequences/00 | tee run.log)
+python3 tools/kitti_eval.py runs/00/CameraTrajectory.txt $D/poses/00.txt
+```
+
+Measured on this port (stereo), against the paper's ~0.70 % for 00 and ~0.9-1.0 % for 04:
+
+| seq | frames | translation | rotation | ATE RMSE |
+|-----|--------|-------------|----------|----------|
+| 04  | 271    | 0.45-0.47 % | ~0.1 deg/100m | ~0.8 m |
+| 00  | 4541   | 0.69 %      | 0.25 deg/100m | 7.7 m |
+
+Seq 00's ATE looks high against the paper's ~1.3 m; the segment metric is the meaningful
+one over a 3.7 km trajectory with loop-closure BA jumps. Nothing is bit-deterministic
+(RANSAC + thread interleaving), so compare magnitudes, and treat any `LOST` /
+relocalization spam in `run.log` as a failure regardless of the final number.
 
 Settings `.yaml` files carry camera intrinsics and ORB extractor params (`ORBextractor.nFeatures`, `nLevels`, `iniThFAST`/`minThFAST`). Tuning SLAM behaviour usually means editing these, not the code. The `Viewer.*` keys are leftovers from the Pangolin viewer and are no longer read by anything.
 
 ## Architecture
 
-`System` (src/System.cc) is the only public entry point. Its constructor builds the map and spawns two long-lived threads; the caller's thread becomes the tracking thread by calling `TrackMonocular` / `TrackStereo` / `TrackRGBD` per frame, each returning the camera pose `Tcw`.
+Source layout mirrors the module split (`.claude/plans/migration.md` §9). Headers live at
+`include/orbslam/<module>/<Name>.hpp`, sources at `src/<module>/<Name>.cpp`, and every
+include spells the full path: `#include "orbslam/core/Frame.hpp"`.
+
+```
+core/         Map MapPoint KeyFrame Frame Converter   -- orbslam2_core
+features/     ORBextractor ORBmatcher ORBVocabulary KeyFrameDatabase
+tracking/     Tracking Initializer                    -- orbslam2_slam
+mapping/      LocalMapping
+loop_closing/ LoopClosing
+optimization/ Optimizer PnPsolver Sim3Solver
+system/       System
+```
+
+
+`System` (src/system/System.cpp) is the only public entry point. Its constructor builds the map and spawns two long-lived threads; the caller's thread becomes the tracking thread by calling `TrackMonocular` / `TrackStereo` / `TrackRGBD` per frame, each returning the camera pose `Tcw`.
 
 The three threads and what they own:
 
-- **Tracking** (`Tracking.cc`, runs in the caller's thread): extracts ORB, estimates the pose per frame, decides when to insert a KeyFrame. State machine `eTrackingState` = SYSTEM_NOT_READY / NO_IMAGES_YET / NOT_INITIALIZED / OK / LOST. Monocular init goes through `Initializer` (homography + fundamental model selection); stereo/RGB-D initialize from one frame via `StereoInitialization`. On LOST it relocalizes via `KeyFrameDatabase` + `PnPsolver`.
-- **LocalMapping** (`LocalMapping.cc`): consumes new KeyFrames, triangulates new MapPoints, culls redundant points and KeyFrames, runs `Optimizer::LocalBundleAdjustment`.
-- **LoopClosing** (`LoopClosing.cc`): DBoW2 place recognition, `Sim3Solver` + `Optimizer::OptimizeSim3` to compute the loop transform, `OptimizeEssentialGraph`, then a full BA in a *fourth* detached thread.
+- **Tracking** (`src/tracking/Tracking.cpp`, runs in the caller's thread): extracts ORB, estimates the pose per frame, decides when to insert a KeyFrame. State machine `eTrackingState` = SYSTEM_NOT_READY / NO_IMAGES_YET / NOT_INITIALIZED / OK / LOST. Monocular init goes through `Initializer` (homography + fundamental model selection); stereo/RGB-D initialize from one frame via `StereoInitialization`. On LOST it relocalizes via `KeyFrameDatabase` + `PnPsolver`.
+- **LocalMapping** (`src/mapping/LocalMapping.cpp`): consumes new KeyFrames, triangulates new MapPoints, culls redundant points and KeyFrames, runs `Optimizer::LocalBundleAdjustment`.
+- **LoopClosing** (`src/loop_closing/LoopClosing.cpp`): DBoW2 place recognition, `Sim3Solver` + `Optimizer::OptimizeSim3` to compute the loop transform, `OptimizeEssentialGraph`, then a full BA in a *fourth* detached thread.
 
 The threads are cross-wired after construction (`SetLocalMapper` / `SetLoopCloser` / `SetTracker`) and communicate through the shared `Map` plus request/ack flag pairs guarded by per-object mutexes (`RequestStop`/`isStopped`, `RequestReset`, `SetNotStop`). **Every shared object is mutex-protected internally** — `Map` (`mMutexMap`), `KeyFrame` (separate `mMutexPose`, `mMutexConnections`, `mMutexFeatures`), `MapPoint` (`mMutexPos`, `mMutexFeatures`). When touching these classes, take the same lock the surrounding methods take; deadlocks here are the main hazard in this codebase.
 
@@ -104,11 +165,31 @@ Localization Mode (`ActivateLocalizationMode`) stops LocalMapping and puts Track
 - Naming is Hungarian-ish and consistent: `mp` member pointer, `mv` member vector, `mb` member bool, `mn` member int, `mT` transform, `n`/`v`/`b`/`p` locals. Match it.
 - Poses are `cv::Mat` 4x4 CV_32F world-to-camera (`Tcw`) unless the name says otherwise (`Twc` is the inverse).
 - The public API in `include/` mirrors the paper; keep changes to it minimal — downstream users link against it. `System`'s constructor still takes `bUseViewer`; it is accepted and ignored, kept so the signature did not break.
+- C-style casts were converted to `static_cast` everywhere **except `PnPsolver.cpp`**, which is left alone with the rest of its numerics.
 - `PnPsolver`'s EPnP uses the OpenCV **C API** (`CvMat`, `cvSVD`, `cvSolve`, `cvInvert`) via `opencv2/core/core_c.h`. That API still ships in OpenCV 4, so it needs the header, not a rewrite. Leave the numerics alone.
 - `Thirdparty/DBoW2` and `Thirdparty/g2o` are *modified* forks, not upstream. Do not swap them for packaged versions without treating it as an algorithm change. They are targets of the root package rather than sub-packages, because cabin probes `system = true` deps only for the primary package -- as path dependencies they would not see OpenCV or Eigen.
 - `Thirdparty/g2o/config.h` used to be generated by `configure_file`. Cabin has no configure step, so the resolved header (both `#cmakedefine`s undefined, i.e. no OpenMP) is committed. Editing it is how you would turn `G2O_OPENMP` on -- along with adding `-fopenmp` to a profile.
-- `include/`, `src/`, `Examples/` and `tests/` are clang-formatted (Google style, `.clang-format`); keep them that way (`cabin fmt`). `Thirdparty/` is deliberately excluded — it is vendored.
-- **Include order is load-bearing**, which is why `.clang-format` sets `SortIncludes: Never` and `IncludeBlocks: Preserve`. Several headers (`Map.h`, `Frame.h`, `Initializer.h`, ...) use unqualified `vector`/`pair`/`map` and only compile because `Thirdparty/DBoW2`'s `TemplatedVocabulary.h` and `Timestamp.h` leak a `using namespace std;` in through an earlier include. Reordering includes breaks the build with `'vector' does not name a type`. Qualifying those names properly is a separate change from a formatting pass.
+- `include/`, `src/`, `Examples/` and `tests/` are clang-formatted (Google style, `.clang-format`); keep them that way (`cabin fmt`). `Thirdparty/` is vendored and excluded via `.clang-format-ignore` — `cabin fmt` reformats it without that file, so do not delete it.
+- **Public headers are self-contained** and no longer depend on include order. Every
+  header under `include/orbslam/` compiles standalone (`g++ -fsyntax-only` on a file
+  that includes only it), spells `std::` explicitly, and pulls its own `<vector>`,
+  `<mutex>`, etc. This retired the old hazard where headers borrowed an unqualified
+  `vector` from the `using namespace std;` that `Thirdparty/DBoW2`'s
+  `TemplatedVocabulary.h` and `Timestamp.h` leak. If you add a header, keep that
+  property — it is cheap to check and it is what makes the module split honest.
+  `.clang-format` still sets `SortIncludes: Never` / `IncludeBlocks: Preserve`, because
+  the **`.cpp` files** were not audited: they still carry a file-scope
+  `using namespace std;` and have not been proven order-independent.
+- Headers use `#pragma once`, not include guards.
+- **`System` deliberately never frees the objects it `new`s** (vocabulary, map, KFDB,
+  tracker, local mapper, loop closer). `LoopClosing` can leave a *detached* global-BA
+  thread running past `Shutdown()`, so freeing the `Map` under it is a use-after-free —
+  an intermittent crash in the `Tracking` tests is exactly what happens if you convert
+  those members to `unique_ptr`. Reclaiming them means making that BA thread joinable
+  first, which is a behaviour change, not a refactor. The two *thread* members are
+  `std::jthread` by value and do get joined (`~System` calls the idempotent `Shutdown()`
+  first); `LoopClosing` holds its BA thread by value and `~LoopClosing` detaches a live
+  one rather than letting `~thread` call `terminate()`.
 
 ## Fixed upstream bugs
 
@@ -124,3 +205,26 @@ Divergences from upstream ORB-SLAM2, each covered by a test:
 
 - `LoadImages` in every example uses `while(!f.eof())`. If the sequence path is wrong the stream never opens, `eof()` never becomes true, and the binary spins at 100% CPU forever with no output instead of reporting the bad path.
 - `g2o`'s `EdgeSE3ProjectXYZ::read` / `EdgeSim3ProjectXYZ::read` have loops GCC flags as undefined behaviour (`-Waggressive-loop-optimizations`). ORB-SLAM2 never calls them.
+
+## Core Guidelines: applied, and deliberately not
+
+The tree follows the C++ Core Guidelines subset that does not touch behaviour: `#pragma
+once` and self-contained headers (SF.8/SF.11), no `using namespace` in a header (SF.7),
+`nullptr` (ES.47), `static_cast` over C-style casts (ES.48, outside `PnPsolver`), `'\n'`
+over `std::endl` (SL.io.50), `explicit` single-argument constructors (C.46), and Rule of
+Five on the two classes that own threads (C.21). C++20 is on; `std::jthread` is used
+where a thread is owned.
+
+Three things are knowingly *not* done, each because it is an API or behaviour change
+rather than a refactor — `.claude/plans/migration.md` §31 is explicit that those must be
+separate steps:
+
+- `enum eSensor` / `eTrackingState` are unscoped enums (Enum.3 wants `enum class`).
+  They are public API that downstream code compares against ints.
+- `Frame`'s mutable file-scope statics (`nNextId`, the undistortion bounds, the grid
+  parameters) are global mutable state (I.2). They are load-bearing for the algorithm and
+  are documented as a trap in `tests/synthetic.hpp`.
+- The SLAM classes wire themselves together with raw `Set*` setters rather than
+  constructor injection, and there are no interfaces to depend on (D of SOLID). The
+  module split is the structural half of that work; introducing seams is migration.md
+  milestones 4-7 and needs the dataset regression baseline in place first.
