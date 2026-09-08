@@ -20,13 +20,15 @@ is not:
 | Standard | C++11 | **C++20** |
 | Build | CMake + `build.sh` shims | **[cabin](https://cabinpkg.com)** (`cabin.toml`) |
 | OpenCV | 2.4 / 3.x | **4.x** |
-| Visualization | Pangolin, built in | **none** — the library is headless |
+| Visualization | Pangolin, built in | **a separate GLFW + Dear ImGui binary** — the libraries are headless |
 | ROS | optional `Examples/ROS` | **removed** |
-| Tests | none | **111 GoogleTest cases** + a KITTI evaluation script |
+| Tests | none | **116 GoogleTest cases** + a KITTI evaluation script |
 | Layout | flat `include/`, `src/` | **module directories**, two libraries |
 
-A GLFW + Dear ImGui GUI is planned as a *separate executable* reading a snapshot API.
-The core library does not link a windowing system, and should not start.
+The GUI is `orbslam2_viewer`, a *separate executable* reading a snapshot API. Neither
+`orbslam2_core` nor `orbslam2_slam` links a windowing system, and neither should start.
+
+![orbslam2_viewer on KITTI sequence 04](docs/viewer.png)
 
 ### Related publications
 
@@ -79,14 +81,18 @@ Tested on Linux with GCC 15. A machine with several cores ensures real-time perf
 - **OpenCV 4** — images and features.
 - **Eigen3** (>= 3.1.0) — required by g2o.
 - **GoogleTest / GoogleMock** — only for `cabin test`.
+- **GLFW3** (>= 3.3) and **OpenGL** — only for `orbslam2_viewer`.
 
 OpenCV, Eigen and GoogleMock are declared `system = true` in `cabin.toml`, meaning cabin
-finds them through **pkg-config** (`opencv4`, `eigen3`, `gmock_main`) rather than fetching
+finds them through **pkg-config** (`opencv4`, `eigen3`, `gmock_main`, `glfw3`, `gl`) rather than fetching
 them. Install them with your OS package manager; a "package not found" error from
 `cabin build` means the corresponding `.pc` file is missing.
 
 **DBoW2 and g2o** are *modified* forks vendored in `Thirdparty/` and built as part of this
 package. Do not substitute distribution packages — the modifications are load-bearing.
+**Dear ImGui** (v1.91.5, upstream GLFW/OpenGL3 backends) is vendored too, because it ships
+no pkg-config file. The modern GL entry points come from `GL_GLEXT_PROTOTYPES` and
+libglvnd, so there is deliberately no glad, glew or epoxy.
 
 No Pangolin. No ROS.
 
@@ -111,6 +117,7 @@ This produces, all in `build/release/packages/ORB_SLAM2/`:
 
 - **liborbslam2_core.a**, **liborbslam2_slam.a**, **libDBoW2.a**, **libg2o.a**
 - **mono_tum**, **mono_kitti**, **mono_euroc**, **stereo_kitti**, **stereo_euroc**, **rgbd_tum**
+- **orbslam2_viewer** — the GUI, see section 9
 
 Cabin has no shared-library kind, and unlike the old CMake build it does not write
 binaries into `Examples/`.
@@ -142,6 +149,8 @@ mapping/       LocalMapping                                  │
 loop_closing/  LoopClosing                                   ├ liborbslam2_slam.a
 optimization/  Optimizer PnPsolver Sim3Solver                │
 system/        System                                       ─┘
+
+apps/viewer/   Snapshot Viewer main                          ─ orbslam2_viewer
 ```
 
 `orbslam2_slam` depends on `orbslam2_core`, and **nothing depends back** — that one-way
@@ -290,7 +299,46 @@ Results are not bit-deterministic (RANSAC plus thread interleaving), so compare
 magnitudes rather than exact numbers, and treat `LOST`/relocalization spam in `run.log` as
 a failure regardless of the final figure.
 
-# 9. Processing your own sequences
+# 9. The viewer
+
+`orbslam2_viewer` is the GUI: a **separate executable** so the libraries stay headless.
+It runs the same dataset loop the examples do, on its own thread, and publishes a value
+snapshot to the render thread after every frame.
+
+```bash
+./build/release/packages/ORB_SLAM2/orbslam2_viewer \
+  --vocabulary Vocabulary/ORBvoc.txt --settings Examples/Stereo/KITTI00-02.yaml \
+  --sensor stereo --format kitti --dataset PATH_TO_SEQUENCE
+```
+
+| flag | |
+|---|---|
+| `--sensor` | `mono` \| `stereo` \| `rgbd` |
+| `--format` | `kitti` \| `tum` \| `euroc` |
+| `--assoc FILE` | RGB/depth associations, for `--format tum --sensor rgbd` |
+| `--times FILE` | timestamps file, for `--format euroc` |
+| `--trajectory OUT` | save the trajectory on exit |
+| `--headless` | run the same loop with no window |
+
+The window is a fixed layout, not a set of dockable panels: a header carrying the
+tracking state and the SLAM/Localization toggle, the map viewport, a right column with
+the live frame, the tracking statistics and the layer toggles, and a status footer.
+
+- **Orbit** with the left mouse button, **pan** with the right, **zoom** with the wheel —
+  over the map viewport only.
+- **Hover or click a keyframe frustum** to highlight the map points it observes.
+- **Layers** toggle the point cloud, the keyframe frusta, the covisibility graph, the
+  spanning tree, the loop edges and the local-map highlight independently.
+- **Save map** writes `KeyFrameTrajectory.txt`; **Reset** clears the map.
+
+Everything the GUI shows crosses the thread boundary through
+`orbslam_viewer::BuildSnapshot` (`apps/viewer/Snapshot.cpp`), which runs on the SLAM
+thread under `Map::mMutexMapUpdate` and copies out **values only**. No `MapPoint*` or
+`KeyFrame*` ever reaches the render thread, because the map may `SetBadFlag()` or
+`Replace()` them mid-frame. The core library's only concession to the GUI is
+`System::GetMap()` / `System::GetTracker()`.
+
+# 10. Processing your own sequences
 
 You will need a settings file with your camera's calibration; see the files provided for
 the TUM and KITTI datasets. The OpenCV calibration model is used. Stereo input must be
@@ -303,10 +351,9 @@ read by anything.
 
 See `Examples/` for how to feed images to the system.
 
-# 10. SLAM and Localization Modes
+# 11. SLAM and Localization Modes
 
-There is no GUI in this fork, so the mode is selected through the API rather than a
-viewer:
+The viewer's header carries a SLAM/Localization toggle. Through the API the mode is:
 
 ```cpp
 SLAM.ActivateLocalizationMode();    // freeze the map

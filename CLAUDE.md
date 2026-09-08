@@ -40,7 +40,17 @@ Plus `DBoW2`, `g2o`, vendored `imgui`, the six examples, `orbslam2_viewer` and `
 
 `orbslam2_viewer` (`apps/viewer/`) is the GLFW3 + OpenGL + Dear ImGui visualizer, a
 **separate executable** so the libraries stay headless -- neither `orbslam2_core` nor
-`orbslam2_slam` includes GL, GLFW or ImGui. It needs `libglfw3-dev` (pkg-config `glfw3`)
+`orbslam2_slam` includes GL, GLFW or ImGui. Its UI is a **fixed layout**, not dockable
+panels: a header (state, SLAM/Localization toggle), a body splitting the GL viewport from
+a 440px right column (live frame, a 3x2 stat grid, layer toggles, Save map / Reset) and a
+footer. `docs/viewer.png` is what it looks like. The layout's rectangles are computed
+analytically at the top of `DrawUi`, because `DrawScene` needs the viewport cell before
+ImGui has laid anything out; the root window is `NoBackground` and paints the chrome
+ground everywhere *except* that cell, so the scissored GL scene shows through exactly
+there. Every colour is a `constexpr ImU32` at the top of `Viewer.cpp` -- the dark theme is
+the design's own tokens with the roles swapped, and swapping them back is one edit. Barlow
+is not installed anywhere, so DejaVu Sans and its condensed cut stand in, with a fallback
+to the bitmap font if the files are missing. It needs `libglfw3-dev` (pkg-config `glfw3`)
 and `gl`; the modern GL entry points come from `GL_GLEXT_PROTOTYPES` + libglvnd, so there
 is deliberately no glad/glew/epoxy. `--headless` runs the same dataset loop with no window:
 
@@ -50,13 +60,17 @@ is deliberately no glad/glew/epoxy. `--headless` runs the same dataset loop with
   --sensor stereo --format kitti --dataset PATH [--assoc F] [--times F] [--headless] [--trajectory OUT]
 ```
 
-The core library's only concession to it is `System::GetMap()` / `System::GetTracker()`.
+The core library's only concessions to it are `System::GetMap()` / `System::GetTracker()`
+and four `Tracking` members (`mvpLocalKeyFrames`, `mvpLocalMapPoints`, `mnMatchesInliers`,
+`mnLastRelocFrameId`) moved into the public block for the stats panel.
 Everything the GUI shows crosses the thread boundary through
 `orbslam_viewer::BuildSnapshot` (`apps/viewer/Snapshot.cpp`), which runs on the SLAM
 thread under `Map::mMutexMapUpdate` and copies out **values only** -- no `MapPoint*` or
 `KeyFrame*` ever reaches the render thread, because the map may `SetBadFlag()`/`Replace()`
 them mid-frame. `Thirdparty/imgui` is vendored (v1.91.5, upstream GLFW/OpenGL3 backends,
-no custom backend) because Dear ImGui ships no pkg-config file.
+no custom backend) because Dear ImGui ships no pkg-config file. The GUI never keeps
+`MapPoint*`-adjacent detail it does not draw: dropping the keyframe table also dropped the
+per-keyframe keypoint arrays, which were the snapshot's largest allocation.
 **Nothing is globbed** -- a new `.cpp` file has to be added to a `sources` array by hand.
 
 Output: static `lib{DBoW2,g2o,orbslam2_core,orbslam2_slam}.a` and all binaries in
