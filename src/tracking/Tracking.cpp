@@ -45,13 +45,13 @@ Tracking::Tracking(System* pSys, ORBVocabulary* pVoc, Map* pMap, KeyFrameDatabas
     : mState(NO_IMAGES_YET)
     , mSensor(sensor)
     , mbOnlyTracking(false)
+    , mnLastRelocFrameId(0)
     , mbVO(false)
     , mpORBVocabulary(pVoc)
     , mpKeyFrameDB(pKFDB)
     , mpInitializer(static_cast<Initializer*>(nullptr))
     , mpSystem(pSys)
-    , mpMap(pMap)
-    , mnLastRelocFrameId(0) {
+    , mpMap(pMap) {
   // Load camera parameters from settings file
 
   cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);

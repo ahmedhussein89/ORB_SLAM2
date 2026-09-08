@@ -99,6 +99,13 @@ public:
   // True if local mapping is deactivated and we are performing only localization
   bool mbOnlyTracking;
 
+  // Local map and relocalisation counters. Public so the external visualizer can
+  // report them; it reads them under Map::mMutexMapUpdate like everything else.
+  std::vector<KeyFrame*> mvpLocalKeyFrames;
+  std::vector<MapPoint*> mvpLocalMapPoints;
+  int mnMatchesInliers;
+  unsigned int mnLastRelocFrameId;
+
   void Reset();
 
 protected:
@@ -152,8 +159,6 @@ protected:
 
   // Local Map
   KeyFrame* mpReferenceKF;
-  std::vector<KeyFrame*> mvpLocalKeyFrames;
-  std::vector<MapPoint*> mvpLocalMapPoints;
 
   // System
   System* mpSystem;
@@ -179,14 +184,10 @@ protected:
   // For RGB-D inputs only. For some datasets (e.g. TUM) the depthmap values are scaled.
   float mDepthMapFactor;
 
-  // Current matches in frame
-  int mnMatchesInliers;
-
   // Last Frame, KeyFrame and Relocalisation Info
   KeyFrame* mpLastKeyFrame;
   Frame mLastFrame;
   unsigned int mnLastKeyFrameId;
-  unsigned int mnLastRelocFrameId;
 
   // Motion Model
   cv::Mat mVelocity;
