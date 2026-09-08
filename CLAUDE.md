@@ -119,7 +119,7 @@ Measured on this port (stereo), against the paper's ~0.70 % for 00 and ~0.9-1.0 
 
 | seq | frames | translation | rotation | ATE RMSE |
 |-----|--------|-------------|----------|----------|
-| 04  | 271    | 0.45-0.47 % | ~0.1 deg/100m | ~0.8 m |
+| 04  | 271    | 0.45-0.47 % | ~0.1 deg/100m | 0.8-0.9 m |
 | 00  | 4541   | 0.69 %      | 0.25 deg/100m | 7.7 m |
 
 Seq 00's ATE looks high against the paper's ~1.3 m; the segment metric is the meaningful
@@ -181,6 +181,9 @@ Localization Mode (`ActivateLocalizationMode`) stops LocalMapping and puts Track
   the **`.cpp` files** were not audited: they still carry a file-scope
   `using namespace std;` and have not been proven order-independent.
 - Headers use `#pragma once`, not include guards.
+- Diagnostics end in `'\n'`, not `std::endl` (SL.io.50) — so the examples set
+  `std::cout << std::unitbuf` in `main`. Without it a redirected long run buffers and
+  prints nothing until it exits, which makes `tee`/`tail -f` on a KITTI run useless.
 - **`System` deliberately never frees the objects it `new`s** (vocabulary, map, KFDB,
   tracker, local mapper, loop closer). `LoopClosing` can leave a *detached* global-BA
   thread running past `Shutdown()`, so freeing the `Map` under it is a use-after-free —
