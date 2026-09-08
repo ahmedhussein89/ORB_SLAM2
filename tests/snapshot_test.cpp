@@ -22,7 +22,7 @@ struct SnapshotTest : ::testing::Test {
     std::shared_ptr<const orbslam_viewer::Snapshot> snap;
     for(int i = 0; i < frames; ++i) {
       const cv::Mat Tcw = slam.TrackRGBD(synth::SynthImage(4 * i), synth::SynthDepth(), i / 30.0);
-      snap = orbslam_viewer::BuildSnapshot(slam, Tcw);
+      snap = orbslam_viewer::BuildSnapshot(slam, Tcw, 1.5);
     }
     return snap;
   }
@@ -64,7 +64,7 @@ TEST_F(SnapshotTest, ExcludesBadPointsAndKeyFrames) {
   points.front()->SetBadFlag();
 
   const cv::Mat Tcw = slam.TrackRGBD(synth::SynthImage(12), synth::SynthDepth(), 0.2);
-  const auto snap = orbslam_viewer::BuildSnapshot(slam, Tcw);
+  const auto snap = orbslam_viewer::BuildSnapshot(slam, Tcw, 0.0);
   ASSERT_NE(snap, nullptr);
 
   // Bad MapPoints are never freed, so a snapshot that forgot to filter them would
@@ -88,23 +88,17 @@ TEST_F(SnapshotTest, KeyFrameViewMatchesTheKeyFrame) {
   ASSERT_NE(it, kfs.end());
   ORB_SLAM2::KeyFrame* const pKF = *it;
 
-  EXPECT_EQ(view.n_features, pKF->N);
-  EXPECT_EQ(view.keypoints.size(), pKF->mvKeysUn.size());
-  EXPECT_EQ(view.point_ids.size(), view.keypoint_index.size());
   EXPECT_EQ(view.n_tracked, static_cast<int>(view.point_ids.size()));
-  EXPECT_DOUBLE_EQ(view.timestamp, pKF->mTimeStamp);
 
-  // The image overlay draws point_ids[k] at keypoints[keypoint_index[k]], so that
-  // pairing has to be the keyframe's own index alignment, not a re-derived one.
-  const std::vector<ORB_SLAM2::MapPoint*> matches = pKF->GetMapPointMatches();
-  for(std::size_t k = 0; k < view.point_ids.size(); ++k) {
-    const int idx = view.keypoint_index[k];
-    ASSERT_GE(idx, 0);
-    ASSERT_LT(static_cast<std::size_t>(idx), matches.size());
-    ASSERT_NE(matches[static_cast<std::size_t>(idx)], nullptr);
-    EXPECT_EQ(matches[static_cast<std::size_t>(idx)]->mnId, view.point_ids[k]);
-    EXPECT_FLOAT_EQ(view.keypoints[static_cast<std::size_t>(idx)][0], pKF->mvKeysUn[idx].pt.x);
-  }
+  // The frustum highlight looks its points up by id, so the id set has to be the
+  // keyframe's live, non-bad matches -- no more, no less.
+  std::unordered_set<orbslam_viewer::PointId> expected;
+  for(ORB_SLAM2::MapPoint* const p : pKF->GetMapPointMatches())
+    if(p != nullptr && !p->isBad())
+      expected.insert(p->mnId);
+  EXPECT_EQ(view.point_ids.size(), expected.size());
+  for(const orbslam_viewer::PointId id : view.point_ids)
+    EXPECT_EQ(expected.count(id), 1u);
 
   // Twc is column-major for OpenGL: the translation lands in elements 12..14.
   const cv::Mat Ow = pKF->GetCameraCenter();
@@ -119,7 +113,7 @@ TEST_F(SnapshotTest, KeyFrameViewMatchesTheKeyFrame) {
 TEST_F(SnapshotTest, LostTrackingLeavesAnIdentityPoseButKeepsTheMap) {
   System slam(synth::TinyVocabFile(), synth::SettingsYaml(), System::RGBD, false);
   RunRgbd(slam, 3);
-  const auto snap = orbslam_viewer::BuildSnapshot(slam, cv::Mat());
+  const auto snap = orbslam_viewer::BuildSnapshot(slam, cv::Mat(), 0.0);
   ASSERT_NE(snap, nullptr);
 
   EXPECT_FALSE(snap->pose_valid);
@@ -127,6 +121,31 @@ TEST_F(SnapshotTest, LostTrackingLeavesAnIdentityPoseButKeepsTheMap) {
   EXPECT_FLOAT_EQ(snap->Twc[15], 1.0f);
   EXPECT_FLOAT_EQ(snap->Twc[12], 0.0f);
   EXPECT_GT(snap->n_map_points, 100u);
+
+  slam.Shutdown();
+}
+
+TEST_F(SnapshotTest, CarriesTheTrackingStatsAndSplitsTheGraphLayers) {
+  System slam(synth::TinyVocabFile(), synth::SettingsYaml(), System::RGBD, false);
+  RunRgbd(slam, 4);
+  const cv::Mat Tcw = slam.TrackRGBD(synth::SynthImage(16), synth::SynthDepth(), 4.25);
+  const auto snap = orbslam_viewer::BuildSnapshot(slam, Tcw, 7.5);
+  ASSERT_NE(snap, nullptr);
+
+  // The panels read these directly; a zero here means the wiring, not the SLAM, broke.
+  EXPECT_DOUBLE_EQ(snap->timestamp, 4.25);
+  EXPECT_DOUBLE_EQ(snap->track_ms, 7.5);
+  EXPECT_EQ(snap->sensor, System::RGBD);
+  EXPECT_FALSE(snap->localization_mode);
+  EXPECT_GT(snap->matches_inliers, 0);
+  EXPECT_GT(snap->n_local_key_frames, 0u);
+  EXPECT_EQ(snap->n_local_map_points, slam.GetMap()->GetReferenceMapPoints().size());
+
+  // Each graph layer toggles on its own, so they must be disjoint vectors -- and a
+  // short synthetic run closes no loops.
+  EXPECT_EQ(snap->spanning_edges.size() + 1u, snap->key_frames.size());
+  EXPECT_TRUE(snap->loop_edges.empty());
+  EXPECT_EQ(snap->n_loop_closures, 0u);
 
   slam.Shutdown();
 }

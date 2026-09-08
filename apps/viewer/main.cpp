@@ -1,5 +1,7 @@
 // orbslam2_viewer -- one binary, GUI by default, --headless for no window.
+#include <chrono>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -10,6 +12,7 @@
 #include <thread>
 #include <vector>
 
+#include <opencv2/core/persistence.hpp>
 #include <opencv2/imgcodecs.hpp>
 
 #include "Snapshot.hpp"
@@ -220,8 +223,20 @@ Sequence LoadSequence(const Options& opt) {
   throw std::runtime_error("unreachable format");
 }
 
-// One frame of the dataset through the tracker. Returns Tcw (empty if lost).
-cv::Mat TrackOne(ORB_SLAM2::System& slam, const Options& opt, const Sequence& seq, std::size_t i) {
+// One frame of the dataset through the tracker. Returns Tcw (empty if lost) and,
+// through `track_ms`, how long the Track*() call itself took -- the tracker keeps no
+// timing of its own and the stats panel wants it.
+cv::Mat TrackOne(ORB_SLAM2::System& slam, const Options& opt, const Sequence& seq, std::size_t i, double* track_ms = nullptr) {
+  struct Timer {
+    double* out;
+    std::chrono::steady_clock::time_point start{std::chrono::steady_clock::now()};
+    ~Timer() {
+      if(out != nullptr) {
+        *out = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+      }
+    }
+  } timer{track_ms};
+
   const cv::Mat left = cv::imread(seq.left[i], cv::IMREAD_UNCHANGED);
   if(left.empty()) {
     throw std::runtime_error("cannot read image " + seq.left[i]);
@@ -246,6 +261,60 @@ cv::Mat TrackOne(ORB_SLAM2::System& slam, const Options& opt, const Sequence& se
   }
   }
   return cv::Mat{};
+}
+
+const char* SensorName(ORB_SLAM2::System::eSensor sensor) {
+  switch(sensor) {
+  case ORB_SLAM2::System::MONOCULAR:
+    return "Monocular";
+  case ORB_SLAM2::System::STEREO:
+    return "Stereo";
+  case ORB_SLAM2::System::RGBD:
+    return "RGB-D";
+  }
+  return "?";
+}
+
+const char* FormatName(Format format) {
+  switch(format) {
+  case Format::kKitti:
+    return "KITTI";
+  case Format::kTum:
+    return "TUM";
+  case Format::kEuroc:
+    return "EuRoC";
+  }
+  return "?";
+}
+
+std::string Basename(const std::string& path) {
+  const std::filesystem::path p{path};
+  return p.filename().empty() ? p.parent_path().filename().string() : p.filename().string();
+}
+
+// The footer's right-hand caption. These live in the settings YAML, and
+// Tracking's extractors are not reachable from outside, so read them the same way
+// Tracking's constructor does.
+std::string OrbCaption(const std::string& settings) {
+  const cv::FileStorage fs{settings, cv::FileStorage::READ};
+  if(!fs.isOpened()) {
+    return "ORB: settings unreadable";
+  }
+  const int features = static_cast<int>(fs["ORBextractor.nFeatures"]);
+  const int levels = static_cast<int>(fs["ORBextractor.nLevels"]);
+  const float scale = static_cast<float>(fs["ORBextractor.scaleFactor"]);
+  const int ini_fast = static_cast<int>(fs["ORBextractor.iniThFAST"]);
+  const int min_fast = static_cast<int>(fs["ORBextractor.minThFAST"]);
+  char buf[160];
+  std::snprintf(buf,
+                sizeof(buf),
+                "ORB: %d feat/frame \xc2\xb7 %d levels \xc2\xb7 scale %.1f \xc2\xb7 FAST th %d/%d",
+                features,
+                levels,
+                static_cast<double>(scale),
+                ini_fast,
+                min_fast);
+  return buf;
 }
 
 void SaveTrajectory(ORB_SLAM2::System& slam, const Options& opt) {
@@ -276,14 +345,6 @@ int main(int argc, char** argv) {
     }
     std::cout << "sequence: " << seq.left.size() << " frames\n";
 
-    // Frame::mnId increments once per image, so the index is the frame id the
-    // snapshot reports. This is what lets the GUI name and re-read keyframe images.
-    orbslam_viewer::ImagePaths image_paths;
-    image_paths.reserve(seq.left.size());
-    for(std::size_t i = 0; i < seq.left.size(); ++i) {
-      image_paths.emplace(static_cast<unsigned long>(i), seq.left[i]);
-    }
-
     ORB_SLAM2::System slam(opt.vocabulary, opt.settings, opt.sensor, false);
 
     if(opt.headless) {
@@ -295,7 +356,9 @@ int main(int argc, char** argv) {
       return 0;
     }
 
-    orbslam_viewer::Viewer viewer{image_paths, "ORB-SLAM2"};
+    const std::string dataset_tag = std::string{SensorName(opt.sensor)} + " \xc2\xb7 " + FormatName(opt.format) + " " +
+        Basename(opt.dataset);
+    orbslam_viewer::Viewer viewer{slam, "ORB-SLAM2 Map Viewer", dataset_tag, Basename(opt.vocabulary), OrbCaption(opt.settings)};
 
     // GLFW owns the main thread; the dataset loop gets its own. The jthread's stop
     // token is what closing the window uses to cut a long sequence short.
@@ -304,8 +367,9 @@ int main(int argc, char** argv) {
       // reports and returns instead; the window stays up showing the partial map.
       try {
         for(std::size_t i = 0; i < seq.left.size() && !stop.stop_requested(); ++i) {
-          const cv::Mat Tcw = TrackOne(slam, opt, seq, i);
-          viewer.Publish(orbslam_viewer::BuildSnapshot(slam, Tcw));
+          double track_ms = 0.0;
+          const cv::Mat Tcw = TrackOne(slam, opt, seq, i, &track_ms);
+          viewer.Publish(orbslam_viewer::BuildSnapshot(slam, Tcw, track_ms));
         }
         std::cout << "sequence finished\n";
       } catch(const std::exception& e) {
@@ -327,4 +391,3 @@ int main(int argc, char** argv) {
     return 1;
   }
 }
-

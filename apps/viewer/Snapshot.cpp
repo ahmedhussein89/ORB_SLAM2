@@ -34,8 +34,9 @@ void PushEdge(std::vector<std::array<float, 6>>& edges, const cv::Mat& a, const 
 
 }    // namespace
 
-std::shared_ptr<const Snapshot> BuildSnapshot(const ORB_SLAM2::System& slam, const cv::Mat& Tcw) {
+std::shared_ptr<const Snapshot> BuildSnapshot(const ORB_SLAM2::System& slam, const cv::Mat& Tcw, double track_ms) {
   auto snap = std::make_shared<Snapshot>();
+  snap->track_ms = track_ms;
 
   ORB_SLAM2::Map* const map = slam.GetMap();
   ORB_SLAM2::Tracking* const tracker = slam.GetTracker();
@@ -89,42 +90,40 @@ std::shared_ptr<const Snapshot> BuildSnapshot(const ORB_SLAM2::System& slam, con
     }
     KeyFrameView view;
     view.id = kf->mnId;
-    view.frame_id = kf->mnFrameId;
-    view.timestamp = kf->mTimeStamp;
     view.Twc = ToGl(kf->GetPoseInverse());
     const cv::Mat ow = kf->GetCameraCenter();
     view.center = {ow.at<float>(0), ow.at<float>(1), ow.at<float>(2)};
-    view.n_features = kf->N;
 
-    const std::vector<ORB_SLAM2::MapPoint*> matches = kf->GetMapPointMatches();
-    view.keypoints.reserve(kf->mvKeysUn.size());
-    for(const cv::KeyPoint& k : kf->mvKeysUn) {
-      view.keypoints.push_back({k.pt.x, k.pt.y});
-    }
-    for(std::size_t i = 0; i < matches.size(); ++i) {
-      ORB_SLAM2::MapPoint* const p = matches[i];
-      if(p == nullptr || p->isBad()) {
-        continue;
+    for(ORB_SLAM2::MapPoint* const p : kf->GetMapPointMatches()) {
+      if(p != nullptr && !p->isBad()) {
+        view.point_ids.push_back(p->mnId);
       }
-      view.point_ids.push_back(p->mnId);
-      view.keypoint_index.push_back(static_cast<int>(i));
     }
     view.n_tracked = static_cast<int>(view.point_ids.size());
 
     // Graph: covisibility (weight >= 100, as the old MapDrawer used), spanning
-    // tree, loop edges. Each drawn once by only emitting mnId < neighbour.
+    // tree, loop edges -- one layer each. Every edge is drawn once by only
+    // emitting it from the lower of the two ids.
     for(ORB_SLAM2::KeyFrame* const n : kf->GetCovisiblesByWeight(100)) {
       if(n != nullptr && !n->isBad() && n->mnId > kf->mnId) {
-        PushEdge(snap->graph_edges, ow, n->GetCameraCenter());
+        PushEdge(snap->covis_edges, ow, n->GetCameraCenter());
       }
     }
     if(ORB_SLAM2::KeyFrame* const parent = kf->GetParent(); parent != nullptr && !parent->isBad()) {
-      PushEdge(snap->graph_edges, ow, parent->GetCameraCenter());
+      PushEdge(snap->spanning_edges, ow, parent->GetCameraCenter());
     }
+    bool closes_loop = false;
     for(ORB_SLAM2::KeyFrame* const n : kf->GetLoopEdges()) {
-      if(n != nullptr && !n->isBad() && n->mnId > kf->mnId) {
-        PushEdge(snap->graph_edges, ow, n->GetCameraCenter());
+      if(n != nullptr && !n->isBad()) {
+        closes_loop = true;
+        if(n->mnId > kf->mnId) {
+          PushEdge(snap->loop_edges, ow, n->GetCameraCenter());
+        }
       }
+    }
+    if(closes_loop) {
+      ++snap->n_loop_closures;
+      snap->last_loop_kf = kf->mnId;
     }
 
     snap->key_frames.push_back(std::move(view));
@@ -136,6 +135,13 @@ std::shared_ptr<const Snapshot> BuildSnapshot(const ORB_SLAM2::System& slam, con
   tracker->mImGray.copyTo(snap->current_image);
   const ORB_SLAM2::Frame& frame = tracker->mCurrentFrame;
   snap->frame_id = frame.mnId;
+  snap->timestamp = frame.mTimeStamp;
+  snap->sensor = tracker->mSensor;
+  snap->localization_mode = tracker->mbOnlyTracking;
+  snap->matches_inliers = tracker->mnMatchesInliers;
+  snap->n_local_key_frames = tracker->mvpLocalKeyFrames.size();
+  snap->n_local_map_points = tracker->mvpLocalMapPoints.size();
+  snap->last_reloc_frame = tracker->mnLastRelocFrameId;
   snap->current_keys.reserve(frame.mvKeysUn.size());
   snap->current_mapped.reserve(frame.mvKeysUn.size());
   for(std::size_t i = 0; i < frame.mvKeysUn.size(); ++i) {
