@@ -28,7 +28,7 @@ is not:
 The GUI is `orbslam2_viewer`, a *separate executable* reading a snapshot API. Neither
 `orbslam2_core` nor `orbslam2_slam` links a windowing system, and neither should start.
 
-![orbslam2_viewer on KITTI sequence 04](docs/viewer.png)
+![orbslam2_viewer on KITTI sequence 04](docs/Screenshot.jpg)
 
 ### Related publications
 
@@ -130,6 +130,27 @@ AVX-512), changing the size and alignment of Eigen-containing types such as
 `g2o::SE3Quat`. **The setting must be identical across DBoW2, g2o and the two orbslam2
 libraries** — mixing it segfaults inside `g2o::BaseVertex::push` during the first global
 bundle adjustment, with no build-time warning.
+
+## Profiling with Tracy
+
+```bash
+cabin build --profile tracy      # release + TRACY_ENABLE, ON_DEMAND, NO_SYSTEM_TRACING
+./build/tracy/packages/ORB_SLAM2/stereo_kitti ...
+```
+
+Then connect the [Tracy](https://github.com/wolfpld/tracy) UI (`tracy-profiler` from the
+v0.14.1 release) to the running process. Nothing is recorded until it connects. The
+Tracking, LocalMapping, LoopClosing and GlobalBA threads name themselves, each SLAM stage
+is a zone, and one frame is one `System::Track*` call.
+
+The client collects instrumentation only: `TRACY_NO_SYSTEM_TRACING` turns off call-stack
+sampling, context-switch capture and hardware counters, so the zones are the whole picture
+and the run needs no `perf_event` permissions. Remove that define from `[profile.tracy]`
+in `cabin.toml` to get sampling back.
+
+The instrumentation costs nothing in a normal build: without `TRACY_ENABLE` the vendored
+client compiles to an empty translation unit and the macros expand to nothing, so
+`./build.sh` produces exactly the binary it did before.
 
 # 4. Source layout
 

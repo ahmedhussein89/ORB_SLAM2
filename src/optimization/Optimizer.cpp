@@ -31,6 +31,7 @@
 #include <Eigen/StdVector>
 
 #include "orbslam/core/Converter.hpp"
+#include <tracy/Tracy.hpp>
 
 #include <mutex>
 
@@ -50,6 +51,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame*>& vpKFs,
                                  bool* pbStopFlag,
                                  const unsigned long nLoopKF,
                                  const bool bRobust) {
+  ZoneScoped;
   vector<bool> vbNotIncludedMP;
   vbNotIncludedMP.resize(vpMP.size());
 
@@ -217,6 +219,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame*>& vpKFs,
 }
 
 int Optimizer::PoseOptimization(Frame* pFrame) {
+  ZoneScoped;
   g2o::SparseOptimizer optimizer;
   g2o::BlockSolver_6_3::LinearSolverType* linearSolver;
 
@@ -413,6 +416,7 @@ int Optimizer::PoseOptimization(Frame* pFrame) {
 }
 
 void Optimizer::LocalBundleAdjustment(KeyFrame* pKF, bool* pbStopFlag, Map* pMap) {
+  ZoneScoped;
   // Local KeyFrames: First Breath Search from Current Keyframe
   list<KeyFrame*> lLocalKeyFrames;
 
@@ -717,6 +721,7 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap,
                                        const LoopClosing::KeyFrameAndPose& CorrectedSim3,
                                        const map<KeyFrame*, set<KeyFrame*>>& LoopConnections,
                                        const bool& bFixScale) {
+  ZoneScoped;
   // Setup optimizer
   g2o::SparseOptimizer optimizer;
   optimizer.setVerbose(false);
@@ -961,6 +966,7 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap,
 
 int Optimizer::OptimizeSim3(
     KeyFrame* pKF1, KeyFrame* pKF2, vector<MapPoint*>& vpMatches1, g2o::Sim3& g2oS12, const float th2, const bool bFixScale) {
+  ZoneScoped;
   g2o::SparseOptimizer optimizer;
   g2o::BlockSolverX::LinearSolverType* linearSolver;
 

@@ -22,6 +22,7 @@
 #include <unistd.h>    // usleep
 #include "orbslam/system/System.hpp"
 #include "orbslam/core/Converter.hpp"
+#include <tracy/Tracy.hpp>
 #include <thread>
 #include <iomanip>
 
@@ -100,6 +101,7 @@ System::System(const string& strVocFile, const string& strSettingsFile, const eS
 }
 
 cv::Mat System::TrackStereo(const cv::Mat& imLeft, const cv::Mat& imRight, const double& timestamp) {
+  FrameMark;
   if(mSensor != STEREO) {
     cerr << "ERROR: you called TrackStereo but input sensor was not set to STEREO." << '\n';
     exit(-1);
@@ -145,6 +147,7 @@ cv::Mat System::TrackStereo(const cv::Mat& imLeft, const cv::Mat& imRight, const
 }
 
 cv::Mat System::TrackRGBD(const cv::Mat& im, const cv::Mat& depthmap, const double& timestamp) {
+  FrameMark;
   if(mSensor != RGBD) {
     cerr << "ERROR: you called TrackRGBD but input sensor was not set to RGBD." << '\n';
     exit(-1);
@@ -190,6 +193,7 @@ cv::Mat System::TrackRGBD(const cv::Mat& im, const cv::Mat& depthmap, const doub
 }
 
 cv::Mat System::TrackMonocular(const cv::Mat& im, const double& timestamp) {
+  FrameMark;
   if(mSensor != MONOCULAR) {
     cerr << "ERROR: you called TrackMonocular but input sensor was not set to Monocular." << '\n';
     exit(-1);

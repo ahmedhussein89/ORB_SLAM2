@@ -26,6 +26,16 @@ cxxflags = ["-Wall", "-Wextra"]
 # (16 -> 64 on AVX-512), which changes the size/alignment of Eigen-containing
 # types such as g2o::SE3Quat. A profile applies to the whole build, so DBoW2,
 # g2o and the two orbslam2 libraries cannot disagree -- which is what used to segfault in g2o.
+# Tracy profiler client. Instrumentation compiles away entirely without
+# TRACY_ENABLE (TracyClient.cpp becomes an empty TU), so the target is linked
+# unconditionally and `--profile tracy` is the only switch. TRACY_NO_SYSTEM_TRACING
+# keeps it to instrumentation only: no perf-based call-stack sampling, no context
+# switch capture, so a run needs no perf_event permissions and the zones are the
+# whole picture.
+[profile.tracy]
+inherits = "release"
+cxxflags = ["-DTRACY_ENABLE", "-DTRACY_ON_DEMAND", "-DTRACY_NO_SYSTEM_TRACING"]
+
 [profile.native]
 inherits = "release"
 cflags = ["-march=native"]
@@ -81,6 +91,13 @@ sources = [
 
 # Dear ImGui v1.91.5, vendored: it ships no pkg-config file and is a source drop by
 # design. Backends are the upstream GLFW + OpenGL3 ones, not hand-written.
+# Tracy v0.11.1 client, vendored: it ships no pkg-config file, and upstream
+# distributes it as a source drop meant to be compiled into the application.
+[target.tracy]
+type = "library"
+include-dirs = ["Thirdparty/tracy/public"]
+sources = ["Thirdparty/tracy/TracyClientAll.cpp"]
+
 [target.imgui]
 type = "library"
 include-dirs = ["Thirdparty/imgui", "Thirdparty/imgui/backends"]
@@ -103,6 +120,7 @@ include-dirs = [".", "include"]
 deps = [
   { name = "DBoW2", public = true },
   { name = "g2o", public = true },
+  { name = "tracy", public = true },
 ]
 sources = [
   "src/core/Converter.cpp",

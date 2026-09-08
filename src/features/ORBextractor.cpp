@@ -61,6 +61,7 @@
 #include <vector>
 
 #include "orbslam/features/ORBextractor.hpp"
+#include <tracy/Tracy.hpp>
 
 
 using namespace cv;
@@ -962,6 +963,7 @@ void ORBextractor::operator()(InputArray _image,
                               [[maybe_unused]] InputArray _mask,
                               vector<KeyPoint>& _keypoints,
                               OutputArray _descriptors) {
+  ZoneScoped;
   if(_image.empty())
     return;
 

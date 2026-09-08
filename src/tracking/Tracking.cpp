@@ -31,6 +31,7 @@
 
 #include "orbslam/optimization/Optimizer.hpp"
 #include "orbslam/optimization/PnPsolver.hpp"
+#include <tracy/Tracy.hpp>
 
 #include <iostream>
 
@@ -52,6 +53,7 @@ Tracking::Tracking(System* pSys, ORBVocabulary* pVoc, Map* pMap, KeyFrameDatabas
     , mpInitializer(static_cast<Initializer*>(nullptr))
     , mpSystem(pSys)
     , mpMap(pMap) {
+  tracy::SetThreadName("Tracking");
   // Load camera parameters from settings file
 
   cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
@@ -157,6 +159,7 @@ void Tracking::SetLoopClosing(LoopClosing* pLoopClosing) {
 }
 
 cv::Mat Tracking::GrabImageStereo(const cv::Mat& imRectLeft, const cv::Mat& imRectRight, const double& timestamp) {
+  ZoneScoped;
   mImGray = imRectLeft;
   cv::Mat imGrayRight = imRectRight;
 
@@ -188,6 +191,7 @@ cv::Mat Tracking::GrabImageStereo(const cv::Mat& imRectLeft, const cv::Mat& imRe
 
 
 cv::Mat Tracking::GrabImageRGBD(const cv::Mat& imRGB, const cv::Mat& imD, const double& timestamp) {
+  ZoneScoped;
   mImGray = imRGB;
   cv::Mat imDepth = imD;
 
@@ -215,6 +219,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat& imRGB, const cv::Mat& imD, const 
 
 
 cv::Mat Tracking::GrabImageMonocular(const cv::Mat& im, const double& timestamp) {
+  ZoneScoped;
   mImGray = im;
 
   if(mImGray.channels() == 3) {
@@ -240,6 +245,7 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat& im, const double& timestamp)
 }
 
 void Tracking::Track() {
+  ZoneScoped;
   if(mState == NO_IMAGES_YET) {
     mState = NOT_INITIALIZED;
   }
@@ -655,6 +661,7 @@ void Tracking::CheckReplacedInLastFrame() {
 
 
 bool Tracking::TrackReferenceKeyFrame() {
+  ZoneScoped;
   // Compute Bag of Words vector
   mCurrentFrame.ComputeBoW();
 
@@ -752,6 +759,7 @@ void Tracking::UpdateLastFrame() {
 }
 
 bool Tracking::TrackWithMotionModel() {
+  ZoneScoped;
   ORBmatcher matcher(0.9, true);
 
   // Update last frame pose according to its reference keyframe
@@ -808,6 +816,7 @@ bool Tracking::TrackWithMotionModel() {
 }
 
 bool Tracking::TrackLocalMap() {
+  ZoneScoped;
   // We have an estimation of the camera pose and some map points tracked in the frame.
   // We retrieve the local map and try to find matches to points in the local map.
 
@@ -922,6 +931,7 @@ bool Tracking::NeedNewKeyFrame() {
 }
 
 void Tracking::CreateNewKeyFrame() {
+  ZoneScoped;
   if(!mpLocalMapper->SetNotStop(true))
     return;
 
@@ -992,6 +1002,7 @@ void Tracking::CreateNewKeyFrame() {
 }
 
 void Tracking::SearchLocalPoints() {
+  ZoneScoped;
   // Do not search map points already matched
   for(vector<MapPoint*>::iterator vit = mCurrentFrame.mvpMapPoints.begin(), vend = mCurrentFrame.mvpMapPoints.end(); vit != vend;
       vit++) {
@@ -1036,6 +1047,7 @@ void Tracking::SearchLocalPoints() {
 }
 
 void Tracking::UpdateLocalMap() {
+  ZoneScoped;
   // This is for visualization
   mpMap->SetReferenceMapPoints(mvpLocalMapPoints);
 
@@ -1161,6 +1173,7 @@ void Tracking::UpdateLocalKeyFrames() {
 }
 
 bool Tracking::Relocalization() {
+  ZoneScoped;
   // Compute Bag of Words Vector
   mCurrentFrame.ComputeBoW();
 

@@ -95,6 +95,44 @@ Use `cabin build --profile native` (a `[profile.native]` inheriting `release`); 
 per-target flag knob in cabin, so the flag necessarily applies to DBoW2, g2o,
 `orbslam2_core` and `orbslam2_slam` at once — which is what makes it safe, because **the setting must be identical across them**. It raises `EIGEN_MAX_ALIGN_BYTES` (16 → 64 on AVX-512), which changes the alignment and size of Eigen-containing types such as `g2o::SE3Quat`. Mixing the setting across those libraries segfaults inside `g2o::BaseVertex::push` during the first global bundle adjustment, with no build-time warning. Do not build the Thirdparty sources standalone with a different setting.
 
+### Profiling with Tracy
+
+`cabin build --profile tracy` builds release plus `-DTRACY_ENABLE -DTRACY_ON_DEMAND
+-DTRACY_NO_SYSTEM_TRACING`; run any binary from `build/tracy/packages/ORB_SLAM2/` and
+connect the Tracy UI (the separate `tracy-profiler` from the same v0.14.1 release) to it.
+`TRACY_ON_DEMAND` means nothing is recorded until the UI connects, so a 4541-frame KITTI
+run does not balloon memory when nobody is watching. `TRACY_NO_SYSTEM_TRACING` keeps the
+client to **instrumentation only** -- no perf-based call-stack sampling, no context-switch
+capture, no hardware counters. The zones below are then the whole picture, the run needs
+no `perf_event_paranoid` tinkering (which matters under WSL2), and the client opens a
+handful of file descriptors instead of one perf fd per core. Drop the define from
+`[profile.tracy]` if you ever do want sampling.
+
+Without that profile the instrumentation is genuinely gone: `TracyClient.cpp` compiles to
+an empty TU and `nm` on a plain release binary finds zero `tracy::` symbols, so the
+`tracy` target is linked unconditionally and the profile is the only switch. That is why
+there is no `#ifdef` anywhere in `src/`.
+
+`ZoneScoped;` marks the stages, not every function: `Tracking::Track` and its four
+sub-strategies, `ORBextractor::operator()`, `LocalMapping`'s five work steps,
+`LoopClosing::{DetectLoop,ComputeSim3,CorrectLoop}` and the five `Optimizer` entry points.
+The frame boundary is `FrameMark` at the top of `System::Track{Stereo,RGBD,Monocular}` --
+the one place every caller routes through, so the examples and the viewer need no marker
+of their own. Threads name themselves (`Tracking`, `LocalMapping`, `LoopClosing`,
+`GlobalBA`) via `tracy::SetThreadName`, which is compiled in both configurations (it is a
+plain `pthread_setname_np` when Tracy is off) and is useful in `gdb` regardless.
+
+`Thirdparty/tracy` is a vendored client-only source drop (v0.14.1), like `imgui`. It is
+compiled through `Thirdparty/tracy/TracyClientAll.cpp`, a wrapper whose only job is to
+wrap the `#include` of the amalgamated client in a `#pragma GCC diagnostic` block -- the
+vendored tree is not `-Wall -Wextra` clean and tracks upstream, so the suppression sits
+around the include rather than widening the package-wide flags. A version bump usually
+means adding an ignore or two to that list; that is the whole maintenance cost. Delete
+`build/tracy/` when bumping, since cabin leaves the old object in `libtracy.a` and the
+link then fails on duplicate symbols. **`cabin fmt` reformats
+`Thirdparty/tracy` too**, so the `git checkout -- Thirdparty/` rule applies to it: commit
+the vendored drop before formatting.
+
 ## Testing
 
 Two layers. Unit tests (GoogleTest, one file per translation unit in `tests/`, flat -- they are

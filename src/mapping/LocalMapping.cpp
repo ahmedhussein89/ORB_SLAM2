@@ -22,6 +22,7 @@
 #include "orbslam/mapping/LocalMapping.hpp"
 #include "orbslam/loop_closing/LoopClosing.hpp"
 #include "orbslam/features/ORBmatcher.hpp"
+#include <tracy/Tracy.hpp>
 #include "orbslam/optimization/Optimizer.hpp"
 
 #include <mutex>
@@ -49,6 +50,7 @@ void LocalMapping::SetTracker(Tracking* pTracker) {
 }
 
 void LocalMapping::Run() {
+  tracy::SetThreadName("LocalMapping");
   mbFinished = false;
 
   while(1) {
@@ -119,6 +121,7 @@ bool LocalMapping::CheckNewKeyFrames() {
 }
 
 void LocalMapping::ProcessNewKeyFrame() {
+  ZoneScoped;
   {
     unique_lock<mutex> lock(mMutexNewKFs);
     mpCurrentKeyFrame = mlNewKeyFrames.front();
@@ -155,6 +158,7 @@ void LocalMapping::ProcessNewKeyFrame() {
 }
 
 void LocalMapping::MapPointCulling() {
+  ZoneScoped;
   // Check Recent Added MapPoints
   list<MapPoint*>::iterator lit = mlpRecentAddedMapPoints.begin();
   const unsigned long int nCurrentKFid = mpCurrentKeyFrame->mnId;
@@ -184,6 +188,7 @@ void LocalMapping::MapPointCulling() {
 }
 
 void LocalMapping::CreateNewMapPoints() {
+  ZoneScoped;
   // Retrieve neighbor keyframes in covisibility graph
   int nn = 10;
   if(mbMonocular)
@@ -413,6 +418,7 @@ void LocalMapping::CreateNewMapPoints() {
 }
 
 void LocalMapping::SearchInNeighbors() {
+  ZoneScoped;
   // Retrieve neighbor keyframes
   int nn = 10;
   if(mbMonocular)
@@ -571,6 +577,7 @@ void LocalMapping::InterruptBA() {
 }
 
 void LocalMapping::KeyFrameCulling() {
+  ZoneScoped;
   // Check redundant keyframes (only local keyframes)
   // A keyframe is considered redundant if the 90% of the MapPoints it sees, are seen
   // in at least other 3 keyframes (in the same or finer scale)

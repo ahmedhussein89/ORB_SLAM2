@@ -26,6 +26,7 @@
 #include "orbslam/core/Converter.hpp"
 
 #include "orbslam/optimization/Optimizer.hpp"
+#include <tracy/Tracy.hpp>
 
 #include "orbslam/features/ORBmatcher.hpp"
 
@@ -68,6 +69,7 @@ void LoopClosing::SetLocalMapper(LocalMapping* pLocalMapper) {
 
 
 void LoopClosing::Run() {
+  tracy::SetThreadName("LoopClosing");
   mbFinished = false;
 
   while(1) {
@@ -107,6 +109,7 @@ bool LoopClosing::CheckNewKeyFrames() {
 }
 
 bool LoopClosing::DetectLoop() {
+  ZoneScoped;
   {
     unique_lock<mutex> lock(mMutexLoopQueue);
     mpCurrentKF = mlpLoopKeyFrameQueue.front();
@@ -220,6 +223,7 @@ bool LoopClosing::DetectLoop() {
 }
 
 bool LoopClosing::ComputeSim3() {
+  ZoneScoped;
   // For each consistent loop candidate we try to compute a Sim3
 
   const int nInitialCandidates = mvpEnoughConsistentCandidates.size();
@@ -369,6 +373,7 @@ bool LoopClosing::ComputeSim3() {
 }
 
 void LoopClosing::CorrectLoop() {
+  ZoneScoped;
   cout << "Loop detected!" << '\n';
 
   // Send a stop signal to Local Mapping
@@ -596,6 +601,8 @@ void LoopClosing::ResetIfRequested() {
 }
 
 void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF) {
+  tracy::SetThreadName("GlobalBA");
+  ZoneScoped;
   cout << "Starting Global Bundle Adjustment" << '\n';
 
   int idx = mnFullBAIdx;
