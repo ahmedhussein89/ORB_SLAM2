@@ -117,10 +117,14 @@ python3 tools/kitti_eval.py runs/00/CameraTrajectory.txt $D/poses/00.txt
 
 Measured on this port (stereo), against the paper's ~0.70 % for 00 and ~0.9-1.0 % for 04:
 
-| seq | frames | translation | rotation | ATE RMSE |
-|-----|--------|-------------|----------|----------|
-| 04  | 271    | 0.45-0.47 % | ~0.1 deg/100m | 0.8-0.9 m |
-| 00  | 4541   | 0.69 %      | 0.25 deg/100m | 7.7 m |
+| seq | frames | translation | rotation | ATE RMSE | samples |
+|-----|--------|-------------|----------|----------|---------|
+| 04  | 271    | 0.44-0.50 % | ~0.09 deg/100m | 0.76-0.96 m | 7 |
+| 00  | 4541   | 0.694-0.705 % | 0.25 deg/100m | 7.2-7.7 m | 3 |
+
+Those are *ranges over repeated runs of the same binary*, not a tolerance. Seq 00 also
+closes 4 loops and reports `New map created with 848 points` every time; a change in
+either is a stronger regression signal than a tenth of a percent of drift.
 
 Seq 00's ATE looks high against the paper's ~1.3 m; the segment metric is the meaningful
 one over a 3.7 km trajectory with loop-closure BA jumps. Nothing is bit-deterministic

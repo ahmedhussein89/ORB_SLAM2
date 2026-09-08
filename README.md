@@ -281,8 +281,10 @@ sequence 04 in the ORB-SLAM2 paper:
 
 | sequence | frames | translation | rotation | ATE RMSE |
 |---|---|---|---|---|
-| 04 | 271 | 0.47 % | 0.09 deg/100m | 0.86 m |
-| 00 | 4541 | 0.70 % | 0.25 deg/100m | 7.71 m |
+| 04 | 271 | 0.44-0.50 % | 0.09 deg/100m | 0.76-0.96 m |
+| 00 | 4541 | 0.69-0.71 % | 0.25 deg/100m | 7.2-7.7 m |
+
+The spans are the observed spread over repeated runs of one binary, not a tolerance.
 
 Results are not bit-deterministic (RANSAC plus thread interleaving), so compare
 magnitudes rather than exact numbers, and treat `LOST`/relocalization spam in `run.log` as
