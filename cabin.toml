@@ -9,6 +9,10 @@ c-standard = "c11"          # g2o/stuff/os_specific.c
 # so they are never listed in a target's `deps`.
 opencv4 = { version = ">=4.0", system = true }
 eigen3 = { version = ">=3.1.0", system = true }
+# GUI deps for orbslam2_viewer. Harmless for the library targets: pkg-config
+# cflags/ldflags are package-wide and neither library #includes GL or GLFW.
+glfw3 = { version = ">=3.3", system = true }
+gl = { version = ">=1.2", system = true }
 
 [dev-dependencies]
 gmock_main = { version = ">=1.10", system = true }
@@ -73,6 +77,20 @@ sources = [
   "Thirdparty/g2o/g2o/stuff/os_specific.c",
   "Thirdparty/g2o/g2o/stuff/string_tools.cpp",
   "Thirdparty/g2o/g2o/stuff/property.cpp",
+]
+
+# Dear ImGui v1.91.5, vendored: it ships no pkg-config file and is a source drop by
+# design. Backends are the upstream GLFW + OpenGL3 ones, not hand-written.
+[target.imgui]
+type = "library"
+include-dirs = ["Thirdparty/imgui", "Thirdparty/imgui/backends"]
+sources = [
+  "Thirdparty/imgui/imgui.cpp",
+  "Thirdparty/imgui/imgui_draw.cpp",
+  "Thirdparty/imgui/imgui_tables.cpp",
+  "Thirdparty/imgui/imgui_widgets.cpp",
+  "Thirdparty/imgui/backends/imgui_impl_glfw.cpp",
+  "Thirdparty/imgui/backends/imgui_impl_opengl3.cpp",
 ]
 
 [target.orbslam2_core]
